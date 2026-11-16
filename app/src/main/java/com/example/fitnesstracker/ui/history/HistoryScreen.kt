@@ -54,6 +54,7 @@ import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.EmptyState
 import com.example.fitnesstracker.ui.components.WeeklyBarChart
 import com.example.fitnesstracker.ui.components.workoutDetails
+import com.example.fitnesstracker.util.CalorieCalculator
 import com.example.fitnesstracker.util.Formatters
 import java.time.LocalDate
 
@@ -83,7 +84,13 @@ fun HistoryScreen() {
 
         val totalKcal = dayLogs.sumOf { it.caloriesBurned }
         val cardioMinutes = dayLogs.filter { it.speedKmh != null }
-            .sumOf { (it.durationMinutes ?: 0f).toDouble() }.toFloat()
+            .sumOf { log ->
+                log.durationMinutes?.toDouble()
+                    ?: CalorieCalculator.minutesFromDistance(
+                        (log.distanceKm ?: 0f).toDouble(),
+                        (log.speedKmh ?: 0f).toDouble()
+                    )
+            }.toFloat()
         DaySummaryCard(
             title = Formatters.dayTitle(selectedDay),
             totalKcal = totalKcal,
@@ -120,8 +127,9 @@ private const val DATE_STRIP_LENGTH = 60
 
 @Composable
 private fun DateStrip(statsByDay: Map<Long, DayStats>, selectedDay: Long, onSelect: (Long) -> Unit) {
-    val today = remember { LocalDate.now() }
-    val days = remember { (0L until DATE_STRIP_LENGTH).map { today.minusDays(it) } }
+    // Без remember: пересчитывается при каждом входе на экран (не замерзает после полуночи).
+    val today = LocalDate.now()
+    val days = (0L until DATE_STRIP_LENGTH).map { today.minusDays(it) }
 
     LazyRow(
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),

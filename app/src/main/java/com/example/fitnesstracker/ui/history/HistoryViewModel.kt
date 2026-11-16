@@ -6,6 +6,7 @@ import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
+import com.example.fitnesstracker.util.CalorieCalculator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,7 +68,7 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
                 },
                 sets = entries.size,
                 totalReps = entries.sumOf { it.reps ?: 0 },
-                totalMinutes = entries.sumOf { (it.durationMinutes ?: 0f).toDouble() }.toFloat(),
+                totalMinutes = entries.sumOf { effectiveMinutes(it) }.toFloat(),
                 totalDistance = entries.sumOf { (it.distanceKm ?: 0f).toDouble() }.toFloat(),
                 totalKcal = entries.sumOf { it.caloriesBurned },
                 entries = entries.sortedBy { it.timestamp }
@@ -78,4 +79,12 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
     fun selectDay(epochDay: Long) {
         _selectedDay.value = epochDay
     }
+
+    /** Эффективная длительность: указанная или рассчитанная из расстояния и скорости. */
+    private fun effectiveMinutes(log: WorkoutLog): Double =
+        log.durationMinutes?.toDouble()
+            ?: CalorieCalculator.minutesFromDistance(
+                (log.distanceKm ?: 0f).toDouble(),
+                (log.speedKmh ?: 0f).toDouble()
+            )
 }

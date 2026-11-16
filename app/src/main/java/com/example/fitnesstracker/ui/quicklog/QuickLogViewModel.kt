@@ -140,6 +140,16 @@ class QuickLogViewModel(
         _state.update { recalculate(it.copy(selected = null, editingLog = null)) }
     }
 
+    /**
+     * Сброс перед открытием шита для НОВОЙ записи: гасит зависший режим
+     * редактирования и диалог создания, оставшиеся после отмены прошлого сеанса.
+     */
+    fun prepareForNewEntry() {
+        _state.update {
+            recalculate(applyFilters(it.copy(selected = null, editingLog = null, showCreateDialog = false)))
+        }
+    }
+
     fun setReps(reps: Int) {
         _state.update { recalculate(it.copy(reps = reps.coerceIn(0, 1000))) }
     }

@@ -98,6 +98,11 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
         }
     }
 
+    // Обновляем «сегодня» при каждом входе на экран (иначе после полуночи список зависает на вчера).
+    LaunchedEffect(Unit) {
+        viewModel.refreshToday()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (logs.isEmpty()) {
             EmptyState(
@@ -149,7 +154,11 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
         }
 
         ExtendedFloatingActionButton(
-            onClick = { showQuickLog = true },
+            onClick = {
+                // Сбрасываем возможный зависший режим редактирования/диалог создания.
+                quickLogViewModel.prepareForNewEntry()
+                showQuickLog = true
+            },
             icon = { Icon(imageVector = Icons.Filled.Add, contentDescription = null) },
             text = { Text(text = "Записать упражнение") },
             modifier = Modifier

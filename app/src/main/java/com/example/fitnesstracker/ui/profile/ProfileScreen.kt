@@ -142,7 +142,7 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
-                        onClick = { viewModel.saveWeight() },
+                        onClick = { if (viewModel.saveWeight()) showSnackbar("Вес сохранён") },
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(text = "Сохранить")
@@ -189,7 +189,7 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
-                        onClick = { viewModel.saveDailyGoal() },
+                        onClick = { if (viewModel.saveDailyGoal()) showSnackbar("Цель сохранена") },
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(text = "Сохранить")

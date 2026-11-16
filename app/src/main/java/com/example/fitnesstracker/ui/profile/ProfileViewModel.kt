@@ -71,27 +71,30 @@ class ProfileViewModel(
         _state.update { it.copy(weightText = text, weightError = false) }
     }
 
-    fun saveWeight() {
+    /** Сохранение веса; возвращает true, если валидация прошла и сохранение запущено. */
+    fun saveWeight(): Boolean {
         val parsed = _state.value.weightText.replace(',', '.').toDoubleOrNull()
         if (parsed == null || parsed < 30.0 || parsed > 250.0) {
             _state.update { it.copy(weightError = true) }
-            return
+            return false
         }
         viewModelScope.launch { settingsRepository.setBodyWeight(parsed) }
+        return true
     }
 
     fun onDailyGoalChange(text: String) {
         _state.update { it.copy(dailyGoalText = text, dailyGoalError = false) }
     }
 
-    /** Сохранение дневной цели; 0 — выключить функцию. */
-    fun saveDailyGoal() {
+    /** Сохранение дневной цели; 0 — выключить. Возвращает true при успешной валидации. */
+    fun saveDailyGoal(): Boolean {
         val parsed = _state.value.dailyGoalText.toIntOrNull()
         if (parsed == null || parsed < 0 || parsed > 10_000) {
             _state.update { it.copy(dailyGoalError = true) }
-            return
+            return false
         }
         viewModelScope.launch { settingsRepository.setDailyGoalKcal(parsed) }
+        return true
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -129,11 +132,11 @@ class ProfileViewModel(
             val name = item.optString("exercise", "").trim()
             if (name.isEmpty()) continue
 
-            val reps = if (item.has("reps")) item.optInt("reps").takeIf { it > 0 } else null
-            val weight = if (item.has("weightKg")) item.optDouble("weightKg").toFloat() else null
-            val duration = if (item.has("durationMinutes")) item.optDouble("durationMinutes").toFloat() else null
-            val speed = if (item.has("speedKmh")) item.optDouble("speedKmh").toFloat() else null
-            val distance = if (item.has("distanceKm")) item.optDouble("distanceKm").toFloat() else null
+            val reps = item.optIntOrNull("reps")
+            val weight = item.optFloatOrNull("weightKg")
+            val duration = item.optFloatOrNull("durationMinutes")
+            val speed = item.optFloatOrNull("speedKmh")
+            val distance = item.optFloatOrNull("distanceKm")
 
             val localDateTime = runCatching { LocalDateTime.parse(item.getString("time"), timeFormat) }
                 .getOrElse {
@@ -311,5 +314,20 @@ class ProfileViewModel(
             "\"" + value.replace("\"", "\"\"") + "\""
         } else {
             value
+        }
+
+    /** Безопасное чтение числа: отсутствующее или null-значение JSON даёт null (а не NaN). */
+    private fun JSONObject.optFloatOrNull(key: String): Float? =
+        if (has(key) && !isNull(key)) {
+            optDouble(key).takeIf { !it.isNaN() }?.toFloat()
+        } else {
+            null
+        }
+
+    private fun JSONObject.optIntOrNull(key: String): Int? =
+        if (has(key) && !isNull(key)) {
+            optInt(key).takeIf { it > 0 }
+        } else {
+            null
         }
 }

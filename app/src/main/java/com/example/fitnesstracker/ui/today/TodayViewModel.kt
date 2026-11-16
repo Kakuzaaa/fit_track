@@ -7,8 +7,11 @@ import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.SettingsRepository
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
 import com.example.fitnesstracker.util.CalorieCalculator
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,14 +26,20 @@ data class TodaySummary(
     val cardioMinutes: Float
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TodayViewModel(
     private val workoutRepository: WorkoutRepository,
     settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    private val todayEpochDay: Long = LocalDate.now().toEpochDay()
+    /**
+     * «Сегодня» в отдельном потоке: обновляется при входе на экран
+     * ([refreshToday]), иначе процесс, переживший полночь, показывал бы вчерашний список.
+     */
+    private val _todayEpochDay = MutableStateFlow(LocalDate.now().toEpochDay())
 
-    val logs: StateFlow<List<WorkoutLog>> = workoutRepository.observeLogsForDay(todayEpochDay)
+    val logs: StateFlow<List<WorkoutLog>> = _todayEpochDay
+        .flatMapLatest { day -> workoutRepository.observeLogsForDay(day) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val summary: StateFlow<TodaySummary> = logs.map { list ->
@@ -51,6 +60,11 @@ class TodayViewModel(
     val dailyGoalKcal: StateFlow<Int> = settingsRepository.settings
         .map { it.dailyGoalKcal }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Вызывается при каждом входе на экран «Сегодня». */
+    fun refreshToday() {
+        _todayEpochDay.value = LocalDate.now().toEpochDay()
+    }
 
     /** Быстрый повтор «+1 такой же подход» — копия записи с текущим временем. */
     fun repeat(log: WorkoutLog) {
