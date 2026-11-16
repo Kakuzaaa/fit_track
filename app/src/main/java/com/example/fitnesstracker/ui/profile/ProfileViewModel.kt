@@ -125,6 +125,10 @@ class ProfileViewModel(
         val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val zone = ZoneId.systemDefault()
         val bodyWeight = settingsRepository.settings.first().bodyWeightKg
+        // Справочник читаем ОДИН раз; созданные за импорт упражнения кладём в кэш,
+        // чтобы одно и то же имя не создалось дважды и не было N запросов к БД.
+        val exercises = exerciseRepository.observeExercises().first()
+        val createdDuringImport = mutableMapOf<String, Exercise>()
         var imported = 0
 
         for (i in 0 until workouts.length()) {
@@ -147,12 +151,12 @@ class ProfileViewModel(
             val dateEpochDay = localDateTime.toLocalDate().toEpochDay()
 
             val trackingType = when {
-                speed != null -> TrackingType.CARDIO_SPEED
+                speed != null || distance != null -> TrackingType.CARDIO_SPEED
                 duration != null && reps == null -> TrackingType.DURATION
                 weight != null -> TrackingType.REPS_WEIGHT
                 else -> TrackingType.REPS
             }
-            val exercise = resolveExercise(name, trackingType)
+            val exercise = resolveExercise(name, trackingType, exercises, createdDuringImport)
 
             val calories = item.optInt("calories", 0).takeIf { it > 0 } ?: estimateCalories(
                 trackingType, exercise.baseMetOrKcalFactor, bodyWeight, reps, weight, duration, speed, distance
@@ -181,9 +185,17 @@ class ProfileViewModel(
         workoutRepository.clearAllLogs()
     }
 
-    /** Поиск упражнения по полному имени «название · хват» или по названию; иначе создание своего. */
-    private suspend fun resolveExercise(name: String, trackingType: TrackingType): Exercise {
-        val exercises = exerciseRepository.observeExercises().first()
+    /**
+     * Поиск упражнения по полному имени «название · хват» или по названию;
+     * отсутствующие создаются как свои — один раз за импорт (кэш [created]).
+     */
+    private suspend fun resolveExercise(
+        name: String,
+        trackingType: TrackingType,
+        exercises: List<Exercise>,
+        created: MutableMap<String, Exercise>
+    ): Exercise {
+        created[name]?.let { return it }
         val existing = exercises.firstOrNull { it.displayName.equals(name, ignoreCase = true) }
             ?: run {
                 val baseName = name.substringBefore(" · ").trim()
@@ -207,7 +219,7 @@ class ProfileViewModel(
             gripType = if (name.contains(" · ")) name.substringAfter(" · ").trim() else null,
             trackingType = trackingType
         )
-        return Exercise(
+        val createdExercise = Exercise(
             id = id,
             name = name.substringBefore(" · ").trim(),
             category = category,
@@ -221,6 +233,8 @@ class ProfileViewModel(
             },
             isCustom = true
         )
+        created[name] = createdExercise
+        return createdExercise
     }
 
     private fun estimateCalories(

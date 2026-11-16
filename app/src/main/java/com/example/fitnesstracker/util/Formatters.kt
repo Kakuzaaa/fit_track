@@ -50,9 +50,12 @@ object Formatters {
         val hours = total.toLong() / 60
         val rest = total - hours * 60
         val builder = StringBuilder()
-        if (hours > 0) builder.append(hours).append(" ч ")
-        val restText = if (rest % 1.0 == 0.0) rest.toLong().toString() else rest.toString().replace('.', ',')
-        builder.append(restText).append(" мин")
+        if (hours > 0) builder.append(hours).append(" ч")
+        if (rest > 0.0) {
+            if (hours > 0) builder.append(' ')
+            val restText = if (rest % 1.0 == 0.0) rest.toLong().toString() else rest.toString().replace('.', ',')
+            builder.append(restText).append(" мин")
+        }
         return builder.toString()
     }
 

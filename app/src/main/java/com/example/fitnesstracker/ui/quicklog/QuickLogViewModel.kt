@@ -168,7 +168,9 @@ class QuickLogViewModel(
 
     fun setCardioDuration(minutes: Float?) {
         _state.update {
-            recalculate(it.copy(cardioDurationMinutes = minutes?.coerceIn(0f, 600f)))
+            // 0 и отрицательные значения трактуем как «не указано» — иначе степпер «минус»
+            // обнулял бы расчёт по расстоянию и блокировал сохранение.
+            recalculate(it.copy(cardioDurationMinutes = minutes?.takeIf { m -> m > 0f }?.coerceIn(0f, 600f)))
         }
     }
 
