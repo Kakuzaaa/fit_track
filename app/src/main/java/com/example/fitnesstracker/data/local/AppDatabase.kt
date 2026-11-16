@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.fitnesstracker.data.local.dao.ExerciseDao
 import com.example.fitnesstracker.data.local.dao.WorkoutLogDao
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities = [ExerciseEntity::class, WorkoutLogEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -29,6 +30,13 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun workoutLogDao(): WorkoutLogDao
 
     companion object {
+
+        /** v1 → v2: добавлено поле расстояния для кардио (durationMinutes стал необязательным). */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workout_logs ADD COLUMN distanceKm REAL")
+            }
+        }
 
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -42,6 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "fitness_tracker.db")
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

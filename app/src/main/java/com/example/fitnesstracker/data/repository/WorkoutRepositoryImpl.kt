@@ -26,6 +26,10 @@ class WorkoutRepositoryImpl(private val dao: WorkoutLogDao) : WorkoutRepository 
     override suspend fun insert(log: WorkoutLog): Long =
         dao.insert(log.toEntity())
 
+    override suspend fun update(log: WorkoutLog) {
+        dao.update(log.toEntity())
+    }
+
     override suspend fun delete(log: WorkoutLog) {
         dao.delete(log.toEntity())
     }

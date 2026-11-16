@@ -16,7 +16,10 @@ data class WorkoutLog(
     val timestamp: Long,
     val reps: Int? = null,
     val weightKg: Float? = null,
+    /** Длительность в минутах (для кардио — необязательна). */
     val durationMinutes: Float? = null,
     val speedKmh: Float? = null,
+    /** Пройденное расстояние в км (для кардио). */
+    val distanceKm: Float? = null,
     val caloriesBurned: Int
 )

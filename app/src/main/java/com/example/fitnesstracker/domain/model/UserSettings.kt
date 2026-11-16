@@ -14,10 +14,13 @@ enum class ThemeMode(val label: String) {
  */
 data class UserSettings(
     val bodyWeightKg: Double,
-    val themeMode: ThemeMode
+    val themeMode: ThemeMode,
+    /** Дневная цель по калориям; 0 — цель не задана (функция выключена). */
+    val dailyGoalKcal: Int = 0
 ) {
     companion object {
         const val DEFAULT_BODY_WEIGHT_KG = 75.0
-        val DEFAULT = UserSettings(DEFAULT_BODY_WEIGHT_KG, ThemeMode.SYSTEM)
+        const val DEFAULT_DAILY_GOAL_KCAL = 0
+        val DEFAULT = UserSettings(DEFAULT_BODY_WEIGHT_KG, ThemeMode.SYSTEM, DEFAULT_DAILY_GOAL_KCAL)
     }
 }

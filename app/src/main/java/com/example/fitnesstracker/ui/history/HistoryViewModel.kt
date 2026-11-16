@@ -26,6 +26,7 @@ data class DayExerciseSummary(
     val sets: Int,
     val totalReps: Int,
     val totalMinutes: Float,
+    val totalDistance: Float,
     val totalKcal: Int,
     val entries: List<WorkoutLog>
 )
@@ -43,6 +44,17 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
         .flatMapLatest { day -> workoutRepository.observeLogsForDay(day) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Последние 7 дней (включая сегодня) с нулевым заполнением — для недельного графика. */
+    val weekStats: StateFlow<List<Pair<LocalDate, DayStats>>> = dayStats.map { all ->
+        val byDay = all.associateBy { it.dateEpochDay }
+        val today = LocalDate.now()
+        (6 downTo 0).map { offset ->
+            val date = today.minusDays(offset.toLong())
+            val stats = byDay[date.toEpochDay()] ?: DayStats(date.toEpochDay(), 0, 0, 0)
+            date to stats
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val daySummaries: StateFlow<List<DayExerciseSummary>> = dayLogs.map { logs ->
         logs.groupBy { it.exerciseNameSnapshot }.map { (name, entries) ->
             val first = entries.first()
@@ -56,6 +68,7 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
                 sets = entries.size,
                 totalReps = entries.sumOf { it.reps ?: 0 },
                 totalMinutes = entries.sumOf { (it.durationMinutes ?: 0f).toDouble() }.toFloat(),
+                totalDistance = entries.sumOf { (it.distanceKm ?: 0f).toDouble() }.toFloat(),
                 totalKcal = entries.sumOf { it.caloriesBurned },
                 entries = entries.sortedBy { it.timestamp }
             )

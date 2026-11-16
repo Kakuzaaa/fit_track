@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import com.example.fitnesstracker.data.local.entity.WorkoutLogEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 data class DayStatsRow(
     val dateEpochDay: Long,
     val totalCalories: Int,
+    val totalReps: Int,
     val entries: Int
 )
 
@@ -23,7 +25,8 @@ interface WorkoutLogDao {
     fun observeLogsForDay(dateEpochDay: Long): Flow<List<WorkoutLogEntity>>
 
     @Query(
-        "SELECT dateEpochDay, SUM(caloriesBurned) AS totalCalories, COUNT(*) AS entries " +
+        "SELECT dateEpochDay, SUM(caloriesBurned) AS totalCalories, " +
+            "COALESCE(SUM(reps), 0) AS totalReps, COUNT(*) AS entries " +
             "FROM workout_logs GROUP BY dateEpochDay ORDER BY dateEpochDay DESC"
     )
     fun observeDayStats(): Flow<List<DayStatsRow>>
@@ -39,6 +42,9 @@ interface WorkoutLogDao {
 
     @Insert
     suspend fun insert(log: WorkoutLogEntity): Long
+
+    @Update
+    suspend fun update(log: WorkoutLogEntity)
 
     @Delete
     suspend fun delete(log: WorkoutLogEntity)

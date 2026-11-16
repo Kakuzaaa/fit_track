@@ -27,14 +27,17 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +52,7 @@ import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.EmptyState
+import com.example.fitnesstracker.ui.components.WeeklyBarChart
 import com.example.fitnesstracker.ui.components.workoutDetails
 import com.example.fitnesstracker.util.Formatters
 import java.time.LocalDate
@@ -66,6 +70,7 @@ fun HistoryScreen() {
     val selectedDay by viewModel.selectedDay.collectAsStateWithLifecycle()
     val dayLogs by viewModel.dayLogs.collectAsStateWithLifecycle()
     val summaries by viewModel.daySummaries.collectAsStateWithLifecycle()
+    val weekStats by viewModel.weekStats.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
         DateStrip(
@@ -73,6 +78,8 @@ fun HistoryScreen() {
             selectedDay = selectedDay,
             onSelect = viewModel::selectDay
         )
+
+        WeeklyChartCard(week = weekStats)
 
         val totalKcal = dayLogs.sumOf { it.caloriesBurned }
         val cardioMinutes = dayLogs.filter { it.speedKmh != null }
@@ -171,6 +178,65 @@ private fun DateStrip(statsByDay: Map<Long, DayStats>, selectedDay: Long, onSele
                     )
                 }
             }
+        }
+    }
+}
+
+// ─────────────────────────── График за неделю ───────────────────────────
+
+/**
+ * Карточка «Последние 7 дней» с переключателем метрик: ккал / повторения.
+ */
+@Composable
+private fun WeeklyChartCard(week: List<Pair<LocalDate, DayStats>>) {
+    var metric by rememberSaveable { mutableIntStateOf(0) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Последние 7 дней",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = metric == 0,
+                    onClick = { metric = 0 },
+                    label = { Text(text = "Ккал") }
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                FilterChip(
+                    selected = metric == 1,
+                    onClick = { metric = 1 },
+                    label = { Text(text = "Повторения") }
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            WeeklyBarChart(
+                days = week.map { it.first },
+                values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
+            val average = values.sum() / 7
+            Text(
+                text = "В среднем: ${Formatters.number(average.toFloat())} " +
+                    if (metric == 0) "ккал в день" else "повторений в день",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -317,9 +383,13 @@ private fun aggregateText(summary: DayExerciseSummary): String = when (summary.t
     TrackingType.REPS, TrackingType.REPS_WEIGHT ->
         "${summary.totalReps} раз · ${summary.sets} " +
             Formatters.plural(summary.sets, "подход", "подхода", "подходов")
-    TrackingType.CARDIO_SPEED ->
-        "${Formatters.minutes(summary.totalMinutes)} · ${summary.sets} " +
-            Formatters.plural(summary.sets, "запись", "записи", "записей")
+    TrackingType.CARDIO_SPEED -> {
+        val parts = mutableListOf<String>()
+        summary.totalDistance.takeIf { it > 0f }?.let { parts += "${Formatters.number(it)} км" }
+        summary.totalMinutes.takeIf { it > 0f }?.let { parts += Formatters.minutes(it) }
+        parts += "${summary.sets} " + Formatters.plural(summary.sets, "запись", "записи", "записей")
+        parts.joinToString(" · ")
+    }
     TrackingType.DURATION ->
         "${Formatters.minutes(summary.totalMinutes)} всего"
 }

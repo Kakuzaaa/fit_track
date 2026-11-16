@@ -62,6 +62,13 @@ object CalorieCalculator {
     }
 
     /**
+     * Длительность (в минутах), рассчитанная из расстояния и скорости:
+     * t = S / V × 60.
+     */
+    fun minutesFromDistance(distanceKm: Double, speedKmh: Double): Double =
+        if (speedKmh > 0.0 && distanceKm > 0.0) distanceKm / speedKmh * 60.0 else 0.0
+
+    /**
      * Силовые упражнения на повторения:
      * ккал = (базовая энергоёмкость 1 повтора × поправка на вес тела
      * + добавка за вес гантелей) × число повторений.

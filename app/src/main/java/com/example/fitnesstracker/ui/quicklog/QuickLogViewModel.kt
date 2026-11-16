@@ -21,7 +21,12 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
- * Состояние BottomSheet быстрого добавления подхода.
+ * Событие успешного сохранения: новая запись или редактирование существующей.
+ */
+data class SavedEvent(val log: WorkoutLog, val isEdit: Boolean)
+
+/**
+ * Состояние BottomSheet быстрого добавления / редактирования подхода.
  */
 data class QuickLogUiState(
     val query: String = "",
@@ -31,11 +36,18 @@ data class QuickLogUiState(
     val selected: Exercise? = null,
     val reps: Int = 10,
     val weightKg: Float = 8f,
-    val durationMinutes: Float = 30f,
+    /** Длительность для статики (планка) — обязательна. */
+    val durationMinutes: Float = 1f,
+    /** Расстояние для кардио (км). */
+    val distanceKm: Float = 3f,
+    /** Длительность для кардио — необязательна: если null, считаем из расстояния и скорости. */
+    val cardioDurationMinutes: Float? = null,
     val speedKmh: Float = 5.5f,
     val lastUsedWeightKg: Float? = null,
     val previewKcal: Int = 0,
-    val showCreateDialog: Boolean = false
+    val showCreateDialog: Boolean = false,
+    /** Запись в режиме редактирования (null — обычное добавление). */
+    val editingLog: WorkoutLog? = null
 )
 
 class QuickLogViewModel(
@@ -47,9 +59,8 @@ class QuickLogViewModel(
     private val _state = MutableStateFlow(QuickLogUiState())
     val state: StateFlow<QuickLogUiState> = _state.asStateFlow()
 
-    /** Событие успешного сохранения — экран закрывает шит и показывает снекбар. */
-    private val _saved = MutableSharedFlow<WorkoutLog>(extraBufferCapacity = 1)
-    val saved: SharedFlow<WorkoutLog> = _saved.asSharedFlow()
+    private val _saved = MutableSharedFlow<SavedEvent>(extraBufferCapacity = 1)
+    val saved: SharedFlow<SavedEvent> = _saved.asSharedFlow()
 
     private var bodyWeightKg = CalorieCalculator.DEFAULT_BODY_WEIGHT_KG
 
@@ -86,10 +97,13 @@ class QuickLogViewModel(
                 recalculate(
                     it.copy(
                         selected = exercise,
+                        editingLog = null,
                         reps = 10,
                         weightKg = lastWeight ?: 8f,
                         lastUsedWeightKg = lastWeight,
                         durationMinutes = if (exercise.trackingType == TrackingType.DURATION) 1f else 30f,
+                        distanceKm = defaultDistanceFor(exercise),
+                        cardioDurationMinutes = null,
                         speedKmh = defaultSpeedFor(exercise)
                     )
                 )
@@ -97,8 +111,33 @@ class QuickLogViewModel(
         }
     }
 
+    /**
+     * Вход в режим редактирования существующей записи.
+     */
+    fun startEditing(log: WorkoutLog) {
+        viewModelScope.launch {
+            val exercise = exerciseRepository.getExercise(log.exerciseId) ?: return@launch
+            _state.update {
+                recalculate(
+                    it.copy(
+                        selected = exercise,
+                        editingLog = log,
+                        reps = log.reps ?: 10,
+                        weightKg = log.weightKg ?: 8f,
+                        lastUsedWeightKg = log.weightKg,
+                        durationMinutes = log.durationMinutes ?: 1f,
+                        cardioDurationMinutes = log.durationMinutes
+                            .takeIf { exercise.trackingType == TrackingType.CARDIO_SPEED },
+                        speedKmh = log.speedKmh ?: defaultSpeedFor(exercise),
+                        distanceKm = log.distanceKm ?: defaultDistanceFor(exercise)
+                    )
+                )
+            }
+        }
+    }
+
     fun clearSelection() {
-        _state.update { recalculate(it.copy(selected = null)) }
+        _state.update { recalculate(it.copy(selected = null, editingLog = null)) }
     }
 
     fun setReps(reps: Int) {
@@ -111,6 +150,16 @@ class QuickLogViewModel(
 
     fun setDuration(minutes: Float) {
         _state.update { recalculate(it.copy(durationMinutes = minutes.coerceIn(0f, 600f))) }
+    }
+
+    fun setDistance(distanceKm: Float) {
+        _state.update { recalculate(it.copy(distanceKm = distanceKm.coerceIn(0f, 200f))) }
+    }
+
+    fun setCardioDuration(minutes: Float?) {
+        _state.update {
+            recalculate(it.copy(cardioDurationMinutes = minutes?.coerceIn(0f, 600f)))
+        }
     }
 
     fun setSpeed(speedKmh: Float) {
@@ -143,12 +192,14 @@ class QuickLogViewModel(
         val exercise = current.selected ?: return
         val kcal = current.previewKcal
         if (kcal <= 0) return
+        val original = current.editingLog
         viewModelScope.launch {
             val log = WorkoutLog(
+                id = original?.id ?: 0L,
                 exerciseId = exercise.id,
                 exerciseNameSnapshot = exercise.displayName,
-                dateEpochDay = LocalDate.now().toEpochDay(),
-                timestamp = System.currentTimeMillis(),
+                dateEpochDay = original?.dateEpochDay ?: LocalDate.now().toEpochDay(),
+                timestamp = original?.timestamp ?: System.currentTimeMillis(),
                 reps = if (exercise.trackingType == TrackingType.REPS ||
                     exercise.trackingType == TrackingType.REPS_WEIGHT
                 ) {
@@ -157,20 +208,29 @@ class QuickLogViewModel(
                     null
                 },
                 weightKg = if (exercise.trackingType == TrackingType.REPS_WEIGHT) current.weightKg else null,
-                durationMinutes = if (exercise.trackingType == TrackingType.CARDIO_SPEED ||
-                    exercise.trackingType == TrackingType.DURATION
-                ) {
-                    current.durationMinutes
+                durationMinutes = when (exercise.trackingType) {
+                    TrackingType.CARDIO_SPEED -> current.cardioDurationMinutes
+                    TrackingType.DURATION -> current.durationMinutes.takeIf { it > 0 }
+                    else -> null
+                },
+                speedKmh = if (exercise.trackingType == TrackingType.CARDIO_SPEED) current.speedKmh else null,
+                distanceKm = if (exercise.trackingType == TrackingType.CARDIO_SPEED) {
+                    current.distanceKm.takeIf { it > 0 }
                 } else {
                     null
                 },
-                speedKmh = if (exercise.trackingType == TrackingType.CARDIO_SPEED) current.speedKmh else null,
                 caloriesBurned = kcal
             )
-            workoutRepository.insert(log)
-            _saved.tryEmit(log)
+            if (original == null) {
+                workoutRepository.insert(log)
+            } else {
+                workoutRepository.update(log)
+            }
+            _saved.tryEmit(SavedEvent(log, isEdit = original != null))
             // Сбрасываем выбор, но оставляем поиск и фильтр — удобно записать следующий подход.
-            _state.update { recalculate(applyFilters(it.copy(selected = null, query = ""))) }
+            _state.update {
+                recalculate(applyFilters(it.copy(selected = null, query = "", editingLog = null)))
+            }
         }
     }
 
@@ -181,10 +241,28 @@ class QuickLogViewModel(
         else -> listOf(4f, 5.5f, 6.5f, 8f, 10f, 12.5f)
     }
 
+    /** Пресеты расстояния (км) в зависимости от вида кардио. */
+    fun distancePresets(exercise: Exercise): List<Float> = when {
+        exercise.name.contains("ходьб", ignoreCase = true) -> listOf(2f, 3f, 5f)
+        exercise.name.contains("бег", ignoreCase = true) -> listOf(3f, 5f, 10f)
+        else -> listOf(2f, 3f, 5f, 10f)
+    }
+
+    /** Эффективная длительность кардио: указанная или рассчитанная из расстояния. */
+    fun effectiveCardioMinutes(state: QuickLogUiState): Double =
+        state.cardioDurationMinutes?.toDouble()
+            ?: CalorieCalculator.minutesFromDistance(state.distanceKm.toDouble(), state.speedKmh.toDouble())
+
     private fun defaultSpeedFor(exercise: Exercise): Float = when {
         exercise.name.contains("ходьб", ignoreCase = true) -> 5.5f
         exercise.name.contains("бег", ignoreCase = true) -> 10f
         else -> 8f
+    }
+
+    private fun defaultDistanceFor(exercise: Exercise): Float = when {
+        exercise.name.contains("ходьб", ignoreCase = true) -> 3f
+        exercise.name.contains("бег", ignoreCase = true) -> 5f
+        else -> 4f
     }
 
     private fun applyFilters(state: QuickLogUiState): QuickLogUiState {
@@ -214,7 +292,11 @@ class QuickLogViewModel(
             TrackingType.REPS_WEIGHT ->
                 CalorieCalculator.repsKcal(bodyWeightKg, state.reps, exercise.baseMetOrKcalFactor, state.weightKg)
             TrackingType.CARDIO_SPEED ->
-                CalorieCalculator.cardioKcal(bodyWeightKg, state.durationMinutes.toDouble(), state.speedKmh.toDouble())
+                CalorieCalculator.cardioKcal(
+                    bodyWeightKg,
+                    effectiveCardioMinutes(state),
+                    state.speedKmh.toDouble()
+                )
             TrackingType.DURATION ->
                 CalorieCalculator.staticHoldKcal(bodyWeightKg, state.durationMinutes.toDouble(), exercise.baseMetOrKcalFactor)
         }

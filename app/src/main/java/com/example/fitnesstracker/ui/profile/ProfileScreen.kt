@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.ui.profile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,6 +73,24 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
+    // Системный выбор файла для импорта истории (без разрешений на хранилище).
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val text = runCatching {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                }.getOrNull()
+                if (text.isNullOrBlank()) {
+                    showSnackbar("Не удалось прочитать файл")
+                } else {
+                    runCatching { viewModel.importFromJson(text) }
+                        .onSuccess { count -> showSnackbar("Импортировано записей: $count") }
+                        .onFailure { showSnackbar("Ошибка импорта: файл не распознан") }
+                }
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -123,6 +143,53 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
                         onClick = { viewModel.saveWeight() },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(text = "Сохранить")
+                    }
+                }
+            }
+        }
+
+        // ── Цель на день (необязательно) ──
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Цель на день",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Прогресс сгорит ккал в сводке «Сегодня». 0 — выключить",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = state.dailyGoalText,
+                        onValueChange = viewModel::onDailyGoalChange,
+                        suffix = { Text(text = "ккал") },
+                        isError = state.dailyGoalError,
+                        supportingText = {
+                            if (state.dailyGoalError) {
+                                Text(text = "Введите число от 0 до 10000")
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = { viewModel.saveDailyGoal() },
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(text = "Сохранить")
@@ -204,6 +271,12 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                     enabled = !state.exporting
                 ) {
                     Text(text = "Экспорт истории (CSV)")
+                }
+                OutlinedButton(
+                    onClick = { importPicker.launch("*/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = "Импорт истории (JSON)")
                 }
                 HorizontalDivider()
                 OutlinedButton(

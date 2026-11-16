@@ -37,6 +37,7 @@ fun WorkoutLogEntity.toDomain(): WorkoutLog = WorkoutLog(
     weightKg = weightKg,
     durationMinutes = durationMinutes,
     speedKmh = speedKmh,
+    distanceKm = distanceKm,
     caloriesBurned = caloriesBurned
 )
 
@@ -50,11 +51,13 @@ fun WorkoutLog.toEntity(): WorkoutLogEntity = WorkoutLogEntity(
     weightKg = weightKg,
     durationMinutes = durationMinutes,
     speedKmh = speedKmh,
+    distanceKm = distanceKm,
     caloriesBurned = caloriesBurned
 )
 
 fun DayStatsRow.toDomain(): DayStats = DayStats(
     dateEpochDay = dateEpochDay,
     totalCalories = totalCalories,
+    totalReps = totalReps,
     entries = entries
 )

@@ -13,4 +13,6 @@ interface SettingsRepository {
     suspend fun setBodyWeight(weightKg: Double)
 
     suspend fun setThemeMode(mode: ThemeMode)
+
+    suspend fun setDailyGoalKcal(goalKcal: Int)
 }

@@ -20,12 +20,15 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,10 +65,15 @@ fun logIcon(log: WorkoutLog): ImageVector = when {
     else -> Icons.Filled.FitnessCenter
 }
 
-/** Короткое описание параметров подхода: «10 × 8 кг», «30 мин · 8 км/ч» и т.п. */
+/** Короткое описание параметров подхода: «10 × 8 кг», «5 км · 10 км/ч» и т.п. */
 fun workoutDetails(log: WorkoutLog): String = when {
-    log.speedKmh != null ->
-        "${Formatters.minutes(log.durationMinutes ?: 0f)} · ${Formatters.number(log.speedKmh!!)} км/ч"
+    log.speedKmh != null -> {
+        val parts = mutableListOf<String>()
+        log.durationMinutes?.let { parts += Formatters.minutes(it) }
+        log.distanceKm?.let { parts += "${Formatters.number(it)} км" }
+        parts += "${Formatters.number(log.speedKmh!!)} км/ч"
+        parts.joinToString(" · ")
+    }
     log.reps != null && log.weightKg != null ->
         "${log.reps} × ${Formatters.number(log.weightKg!!)} кг"
     log.reps != null ->
@@ -94,9 +102,16 @@ private fun LogIconBadge(icon: ImageVector, modifier: Modifier = Modifier) {
 
 /**
  * Строка журнала: время, название, хват, параметры, ккал.
+ * [onRepeat] — быстрый повтор подхода «+1 такой же»,
+ * [onEdit] — открытие записи в режиме редактирования.
  */
 @Composable
-fun WorkoutLogRow(log: WorkoutLog, modifier: Modifier = Modifier) {
+fun WorkoutLogRow(
+    log: WorkoutLog,
+    modifier: Modifier = Modifier,
+    onEdit: (() -> Unit)? = null,
+    onRepeat: (() -> Unit)? = null
+) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -123,7 +138,28 @@ fun WorkoutLogRow(log: WorkoutLog, modifier: Modifier = Modifier) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            if (onEdit != null) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = "Редактировать запись",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            if (onRepeat != null) {
+                IconButton(onClick = onRepeat, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.Repeat,
+                        contentDescription = "Повторить такой же подход",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(4.dp))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "+${log.caloriesBurned} ккал",

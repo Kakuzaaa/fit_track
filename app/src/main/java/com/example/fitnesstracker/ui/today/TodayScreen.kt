@@ -19,11 +19,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -53,16 +55,23 @@ import com.example.fitnesstracker.ui.components.WorkoutLogRow
 import com.example.fitnesstracker.ui.quicklog.QuickLogSheet
 import com.example.fitnesstracker.ui.quicklog.QuickLogViewModel
 import com.example.fitnesstracker.util.Formatters
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /**
- * Главный экран «Сегодня»: сводка за сутки, лента подходов,
+ * Главный экран «Сегодня»: сводка за сутки (ккал, повторения, кардио,
+ * стрик и прогресс цели), лента подходов с «+1 подход» и редактированием,
  * свайп-удаление с отменой и FAB быстрого добавления.
  */
 @Composable
 fun TodayScreen(snackbarHostState: SnackbarHostState) {
     val container = LocalAppContainer.current
-    val viewModel: TodayViewModel = viewModel { TodayViewModel(container.workoutRepository) }
+    val viewModel: TodayViewModel = viewModel {
+        TodayViewModel(
+            workoutRepository = container.workoutRepository,
+            settingsRepository = container.settingsRepository
+        )
+    }
     val quickLogViewModel: QuickLogViewModel = viewModel {
         QuickLogViewModel(
             exerciseRepository = container.exerciseRepository,
@@ -73,15 +82,18 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
 
     val logs by viewModel.logs.collectAsStateWithLifecycle()
     val summary by viewModel.summary.collectAsStateWithLifecycle()
+    val streak by viewModel.streak.collectAsStateWithLifecycle()
+    val dailyGoalKcal by viewModel.dailyGoalKcal.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var showQuickLog by remember { mutableStateOf(false) }
 
     // Реакция на сохранение из QuickLogSheet: закрыть шит и показать снекбар.
     LaunchedEffect(Unit) {
-        quickLogViewModel.saved.collect { log ->
+        quickLogViewModel.saved.collect { event ->
             showQuickLog = false
+            val verb = if (event.isEdit) "Обновлено" else "Записано"
             snackbarHostState.showSnackbar(
-                message = "Записано: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                message = "$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
             )
         }
     }
@@ -99,10 +111,24 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item(key = "summary") { TodaySummaryCard(summary = summary) }
+                item(key = "summary") {
+                    TodaySummaryCard(summary = summary, dailyGoalKcal = dailyGoalKcal, streak = streak)
+                }
                 items(logs, key = { it.id }) { log ->
                     SwipeToDeleteWorkoutRow(
                         log = log,
+                        onEdit = {
+                            quickLogViewModel.startEditing(log)
+                            showQuickLog = true
+                        },
+                        onRepeat = {
+                            viewModel.repeat(log)
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                                )
+                            }
+                        },
                         onDelete = {
                             viewModel.delete(log)
                             scope.launch {
@@ -138,10 +164,11 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
 }
 
 /**
- * Карточка-сводка за текущие сутки.
+ * Карточка-сводка за текущие сутки: ккал, повторения, кардио +
+ * необязательные прогресс дневной цели и стрик.
  */
 @Composable
-private fun TodaySummaryCard(summary: TodaySummary) {
+private fun TodaySummaryCard(summary: TodaySummary, dailyGoalKcal: Int, streak: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -180,6 +207,63 @@ private fun TodaySummaryCard(summary: TodaySummary) {
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            if (dailyGoalKcal > 0) {
+                Spacer(modifier = Modifier.height(14.dp))
+                val progress = (summary.totalKcal.toFloat() / dailyGoalKcal).coerceIn(0f, 1f)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Цель: ${summary.totalKcal} / $dailyGoalKcal ккал",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "${(progress * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f)
+                )
+            }
+
+            if (streak >= 2) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.height(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Стрик: $streak " +
+                                Formatters.plural(streak, "день", "дня", "дней") + " подряд",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -208,11 +292,16 @@ private fun StatPill(label: String, value: String, modifier: Modifier = Modifier
 }
 
 /**
- * Строка журнала с удалением свайпом влево и красным фоном-подсказкой.
+ * Строка журнала: быстрое «+1 подход», редактирование и удаление свайпом влево.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeToDeleteWorkoutRow(log: WorkoutLog, onDelete: () -> Unit) {
+private fun SwipeToDeleteWorkoutRow(
+    log: WorkoutLog,
+    onEdit: () -> Unit,
+    onRepeat: () -> Unit,
+    onDelete: () -> Unit
+) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -243,6 +332,6 @@ private fun SwipeToDeleteWorkoutRow(log: WorkoutLog, onDelete: () -> Unit) {
             }
         }
     ) {
-        WorkoutLogRow(log = log)
+        WorkoutLogRow(log = log, onEdit = onEdit, onRepeat = onRepeat)
     }
 }

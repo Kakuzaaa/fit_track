@@ -33,5 +33,7 @@ data class WorkoutLogEntity(
     val weightKg: Float? = null,
     val durationMinutes: Float? = null,
     val speedKmh: Float? = null,
+    /** Пройденное расстояние в км (для кардио; длительность может не указываться). */
+    val distanceKm: Float? = null,
     val caloriesBurned: Int
 )

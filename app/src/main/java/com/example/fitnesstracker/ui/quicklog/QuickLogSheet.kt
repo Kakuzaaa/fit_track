@@ -61,8 +61,8 @@ import com.example.fitnesstracker.util.Formatters
 import kotlin.math.roundToInt
 
 /**
- * BottomSheet быстрого добавления: поиск + чипсы категорий -> компактная
- * форма ввода с живым расчётом калорий -> «Сохранить».
+ * BottomSheet быстрого добавления / редактирования: поиск + чипсы категорий
+ * -> компактная форма ввода с живым расчётом калорий -> «Сохранить».
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -261,6 +261,13 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
+                if (state.editingLog != null) {
+                    Text(
+                        text = "Редактирование записи",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
                 Text(
                     text = exercise.name,
                     style = MaterialTheme.typography.titleLarge,
@@ -312,7 +319,10 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Text(text = "Сохранить", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = if (state.editingLog != null) "Сохранить изменения" else "Сохранить",
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }
@@ -463,7 +473,7 @@ private fun WeightForm(state: QuickLogUiState, viewModel: QuickLogViewModel) {
     )
 }
 
-// ── Кардио ──
+// ── Кардио: скорость + расстояние, длительность необязательна ──
 
 @Composable
 private fun CardioForm(exercise: Exercise, state: QuickLogUiState, viewModel: QuickLogViewModel) {
@@ -486,31 +496,79 @@ private fun CardioForm(exercise: Exercise, state: QuickLogUiState, viewModel: Qu
         steps = 37
     )
 
+    Spacer(modifier = Modifier.height(12.dp))
+
+    SectionLabel(text = "Расстояние (км)")
+    ChipSelectorRow(
+        options = viewModel.distancePresets(exercise).map { Formatters.number(it) },
+        selectedValue = Formatters.number(state.distanceKm),
+        onSelect = { it.replace(',', '.').toFloatOrNull()?.let(viewModel::setDistance) }
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    StepperRow(
+        minusIcon = Icons.Filled.Remove,
+        plusIcon = Icons.Filled.Add,
+        minusDescription = "Минус километр",
+        plusDescription = "Плюс километр",
+        onMinus = { viewModel.setDistance(state.distanceKm - 1f) },
+        onPlus = { viewModel.setDistance(state.distanceKm + 1f) },
+        field = {
+            NumberField(
+                value = Formatters.number(state.distanceKm),
+                suffix = "км",
+                decimal = true,
+                onValueChange = { it.replace(',', '.').toFloatOrNull()?.let(viewModel::setDistance) }
+            )
+        }
+    )
+
     Spacer(modifier = Modifier.height(16.dp))
 
-    SectionLabel(text = "Длительность")
-    ChipSelectorRow(
-        options = listOf(10, 15, 20, 30, 45, 60).map { "$it" },
-        selectedValue = Formatters.number(state.durationMinutes),
-        onSelect = { it.toFloatOrNull()?.let(viewModel::setDuration) }
-    )
+    SectionLabel(text = "Длительность (мин) — необязательно")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        FilterChip(
+            selected = state.cardioDurationMinutes == null,
+            onClick = { viewModel.setCardioDuration(null) },
+            label = { Text(text = "Не указывать") }
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(listOf(10, 15, 20, 30, 45, 60)) { minutes ->
+                FilterChip(
+                    selected = state.cardioDurationMinutes == minutes.toFloat(),
+                    onClick = { viewModel.setCardioDuration(minutes.toFloat()) },
+                    label = { Text(text = "$minutes") }
+                )
+            }
+        }
+    }
     Spacer(modifier = Modifier.height(10.dp))
     StepperRow(
         minusIcon = Icons.Filled.Remove,
         plusIcon = Icons.Filled.Add,
         minusDescription = "Минус 5 минут",
         plusDescription = "Плюс 5 минут",
-        onMinus = { viewModel.setDuration(state.durationMinutes - 5f) },
-        onPlus = { viewModel.setDuration(state.durationMinutes + 5f) },
+        onMinus = { viewModel.setCardioDuration((state.cardioDurationMinutes ?: 0f) - 5f) },
+        onPlus = { viewModel.setCardioDuration((state.cardioDurationMinutes ?: 0f) + 5f) },
         field = {
             NumberField(
-                value = Formatters.number(state.durationMinutes),
+                value = state.cardioDurationMinutes?.let { Formatters.number(it) } ?: "",
                 suffix = "мин",
                 decimal = true,
-                onValueChange = { it.replace(',', '.').toFloatOrNull()?.let(viewModel::setDuration) }
+                onValueChange = { input ->
+                    viewModel.setCardioDuration(input.replace(',', '.').toFloatOrNull())
+                }
             )
         }
     )
+    if (state.cardioDurationMinutes == null && state.distanceKm > 0f && state.speedKmh > 0f) {
+        Text(
+            text = "Длительность не указана — рассчитаем из расстояния: " +
+                "≈ ${Formatters.number(viewModel.effectiveCardioMinutes(state).toFloat())} мин",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    }
 }
 
 // ── Статика (планка) ──

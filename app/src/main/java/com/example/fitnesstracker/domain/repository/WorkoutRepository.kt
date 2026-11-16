@@ -20,6 +20,8 @@ interface WorkoutRepository {
 
     suspend fun insert(log: WorkoutLog): Long
 
+    suspend fun update(log: WorkoutLog)
+
     suspend fun delete(log: WorkoutLog)
 
     suspend fun clearAllLogs()
