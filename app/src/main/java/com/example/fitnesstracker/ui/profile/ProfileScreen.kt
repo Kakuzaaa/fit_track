@@ -198,6 +198,38 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
             }
         }
 
+        // ── Отдых между подходами ──
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Отдых между подходами",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Таймер всплывает после сохранения подхода или «+1»",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0 to "Выкл", 60 to "60 сек", 90 to "90 сек", 120 to "120 сек").forEach { (seconds, label) ->
+                        FilterChip(
+                            selected = state.restTimerSeconds == seconds,
+                            onClick = { viewModel.setRestTimer(seconds) },
+                            label = { Text(text = label) }
+                        )
+                    }
+                }
+            }
+        }
+
         // ── Тема ──
         Card(
             modifier = Modifier.fillMaxWidth(),

@@ -2,6 +2,7 @@ package com.example.fitnesstracker.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fitnesstracker.domain.model.BestExerciseStats
 import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.domain.model.WorkoutLog
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
@@ -55,6 +57,16 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
             date to stats
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Лучшие результаты по каждому упражнению за всю историю (нормативы уровня атлета). */
+    private val _bestStats = MutableStateFlow<Map<Long, BestExerciseStats>>(emptyMap())
+    val bestStats: StateFlow<Map<Long, BestExerciseStats>> = _bestStats.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _bestStats.value = workoutRepository.getBestStats().associateBy { it.exerciseId }
+        }
+    }
 
     val daySummaries: StateFlow<List<DayExerciseSummary>> = dayLogs.map { logs ->
         logs.groupBy { it.exerciseNameSnapshot }.map { (name, entries) ->

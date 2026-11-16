@@ -2,6 +2,7 @@ package com.example.fitnesstracker.data.prepopulate
 
 import com.example.fitnesstracker.data.local.entity.ExerciseEntity
 import com.example.fitnesstracker.domain.model.ExerciseCategory
+import com.example.fitnesstracker.domain.model.ExercisePackage
 import com.example.fitnesstracker.domain.model.TrackingType
 
 /**
@@ -11,6 +12,9 @@ import com.example.fitnesstracker.domain.model.TrackingType
  *  - REPS / REPS_WEIGHT — примерные ккал за 1 повторение при весе тела 75 кг;
  *  - DURATION — MET (планка ≈ 3.8);
  *  - CARDIO_SPEED — 0 (MET динамически вычисляется по скорости).
+ *
+ * В БД при первом запуске засеиваются только [all] (id 1..26);
+ * упражнения из [extended] (id 27..63) добавляются пакетами через [packages].
  */
 object DefaultExercises {
 
@@ -77,4 +81,115 @@ object DefaultExercises {
         ExerciseEntity(id = 26, name = "Бег", category = ExerciseCategory.CARDIO,
             gripType = null, trackingType = TrackingType.CARDIO_SPEED, baseMetOrKcalFactor = 0.0)
     )
+
+    /** Расширения справочника — добавляются пакетами, а не при первом запуске. */
+    private val extended: List<ExerciseEntity> = listOf(
+        // ── Пакет «Воркаут и турники» (27–41) ────────────────────
+        ExerciseEntity(id = 27, name = "Австралийские подтягивания", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = "Низкие", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.45),
+        ExerciseEntity(id = 28, name = "Негативные подтягивания", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = "Негативные", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.55),
+        ExerciseEntity(id = 29, name = "Подтягивания архера", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = "Арчера", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.75),
+        ExerciseEntity(id = 30, name = "Подтягивания с хлопком", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = "Взрывные", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.72),
+        ExerciseEntity(id = 31, name = "Выход силой на турнике", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 1.00),
+        ExerciseEntity(id = 32, name = "Подъём туловища к перекладине", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.55),
+        ExerciseEntity(id = 33, name = "Вис на турнике", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = null, trackingType = TrackingType.DURATION, baseMetOrKcalFactor = 4.0),
+        ExerciseEntity(id = 34, name = "Подтягивания на кольцах", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = "Кольца", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.65),
+        ExerciseEntity(id = 35, name = "Уголок на брусьях", category = ExerciseCategory.PULL_UP_BAR,
+            gripType = "Брусья", trackingType = TrackingType.DURATION, baseMetOrKcalFactor = 4.5),
+        ExerciseEntity(id = 36, name = "Отжимания", category = ExerciseCategory.BODYWEIGHT,
+            gripType = "С колен", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.25),
+        ExerciseEntity(id = 37, name = "Отжимания с хлопком", category = ExerciseCategory.BODYWEIGHT,
+            gripType = "Взрывные", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.55),
+        ExerciseEntity(id = 38, name = "Отжимания в стойке на руках", category = ExerciseCategory.BODYWEIGHT,
+            gripType = "У стены", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.70),
+        ExerciseEntity(id = 39, name = "Стойка на руках у стены", category = ExerciseCategory.BODYWEIGHT,
+            gripType = "У стены", trackingType = TrackingType.DURATION, baseMetOrKcalFactor = 4.5),
+        ExerciseEntity(id = 40, name = "Берпи", category = ExerciseCategory.BODYWEIGHT,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.65),
+        ExerciseEntity(id = 41, name = "Приседания на одной ноге", category = ExerciseCategory.BODYWEIGHT,
+            gripType = "Пистолетик", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.55),
+
+        // ── Пакет «Здоровая спина и мобильность» (42–51) ─────────
+        ExerciseEntity(id = 42, name = "«Кошка-корова»", category = ExerciseCategory.ABS,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.15),
+        ExerciseEntity(id = 43, name = "«Птица-собака»", category = ExerciseCategory.ABS,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.18),
+        ExerciseEntity(id = 44, name = "Ягодичный мостик", category = ExerciseCategory.BODYWEIGHT,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.25),
+        ExerciseEntity(id = 45, name = "«Супермен»", category = ExerciseCategory.ABS,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.20),
+        ExerciseEntity(id = 46, name = "Лодочка", category = ExerciseCategory.ABS,
+            gripType = null, trackingType = TrackingType.DURATION, baseMetOrKcalFactor = 3.5),
+        ExerciseEntity(id = 47, name = "Боковая планка", category = ExerciseCategory.ABS,
+            gripType = null, trackingType = TrackingType.DURATION, baseMetOrKcalFactor = 4.0),
+        ExerciseEntity(id = 48, name = "Гиперэкстензия на полу", category = ExerciseCategory.BODYWEIGHT,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.20),
+        ExerciseEntity(id = 49, name = "«Мёртвый жук»", category = ExerciseCategory.ABS,
+            gripType = null, trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.20),
+        ExerciseEntity(id = 50, name = "Наклон к ногам", category = ExerciseCategory.BODYWEIGHT,
+            gripType = "Растяжка", trackingType = TrackingType.DURATION, baseMetOrKcalFactor = 2.5),
+        ExerciseEntity(id = 51, name = "Разминка плеч", category = ExerciseCategory.BODYWEIGHT,
+            gripType = "Разминка", trackingType = TrackingType.REPS, baseMetOrKcalFactor = 0.05),
+
+        // ── Пакет «Базовый зал — штанга» (52–63) ─────────────────
+        ExerciseEntity(id = 52, name = "Становая тяга", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.60),
+        ExerciseEntity(id = 53, name = "Приседания со штангой", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.50),
+        ExerciseEntity(id = 54, name = "Жим лёжа со штангой", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.45),
+        ExerciseEntity(id = 55, name = "Жим стоя (армейский)", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.40),
+        ExerciseEntity(id = 56, name = "Тяга штанги в наклоне", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.40),
+        ExerciseEntity(id = 57, name = "Румынская тяга", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.50),
+        ExerciseEntity(id = 58, name = "Фронтальные приседания", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.48),
+        ExerciseEntity(id = 59, name = "Болгарские выпады со штангой", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.42),
+        ExerciseEntity(id = 60, name = "Шраги со штангой", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.20),
+        ExerciseEntity(id = 61, name = "Тяга штанги к подбородку", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.30),
+        ExerciseEntity(id = 62, name = "Ягодичный мост со штангой", category = ExerciseCategory.BARBELL,
+            gripType = null, trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.40),
+        ExerciseEntity(id = 63, name = "Наклон со штангой", category = ExerciseCategory.BARBELL,
+            gripType = "Good Morning", trackingType = TrackingType.REPS_WEIGHT, baseMetOrKcalFactor = 0.35)
+    )
+
+    /** Пакеты упражнений, доступные для импорта в справочник. */
+    val packages: List<ExercisePackage> = listOf(
+        ExercisePackage(
+            id = "workout",
+            title = "Воркаут и турники",
+            description = "Подтягивания всех уровней, отжимания с хлопком, стойка, берпи, пистолетик",
+            exerciseIds = (27L..41L).toList()
+        ),
+        ExercisePackage(
+            id = "back",
+            title = "Здоровая спина и мобильность",
+            description = "Мягкая разминка и укрепление спины и кора: кошка-собака, мостик, лодочка, боковая планка",
+            exerciseIds = (42L..51L).toList()
+        ),
+        ExercisePackage(
+            id = "barbell",
+            title = "Базовый зал — штанга",
+            description = "Главные движения со штангой. В поле веса указывай общий вес штанги",
+            exerciseIds = (52L..63L).toList()
+        )
+    )
+
+    /** Упражнения конкретного пакета. */
+    fun exercisesForPackage(packageId: String): List<ExerciseEntity> =
+        packages.firstOrNull { it.id == packageId }
+            ?.let { pack -> extended.filter { it.id in pack.exerciseIds } }
+            ?: emptyList()
 }

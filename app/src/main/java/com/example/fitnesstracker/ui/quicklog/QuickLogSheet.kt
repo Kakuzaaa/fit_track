@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalIconButton
@@ -34,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -55,8 +58,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.fitnesstracker.domain.model.Exercise
 import com.example.fitnesstracker.domain.model.ExerciseCategory
+import com.example.fitnesstracker.domain.model.ExercisePackage
+import com.example.fitnesstracker.domain.model.ExerciseProgressions
 import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.ui.components.categoryIcon
+import com.example.fitnesstracker.util.AthleteStandards
 import com.example.fitnesstracker.util.Formatters
 import kotlin.math.roundToInt
 
@@ -157,6 +163,58 @@ private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogVie
         }
         item(key = "create_custom") {
             AddCustomExerciseItem(onClick = { viewModel.showCreateDialog() })
+        }
+
+        // Пакеты упражнений — пока не импортированы.
+        val availablePackages = viewModel.packages.filter { pack ->
+            state.allExercises.none { it.id == pack.exerciseIds.first() }
+        }
+        if (availablePackages.isNotEmpty()) {
+            item(key = "packages_title") {
+                Text(
+                    text = "Пакеты упражнений",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)
+                )
+            }
+            items(availablePackages, key = { "pkg_${it.id}" }) { pack ->
+                ExercisePackageCard(
+                    pack = pack,
+                    onImport = { viewModel.importPackage(pack.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExercisePackageCard(pack: ExercisePackage, onImport: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "📦 ${pack.title}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = pack.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onImport,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(text = "Импортировать (+${pack.exerciseIds.size})")
+            }
         }
     }
 }
@@ -298,6 +356,11 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
             TrackingType.DURATION -> DurationForm(state = state, viewModel = viewModel)
         }
 
+        if (exercise.trackingType == TrackingType.REPS || exercise.trackingType == TrackingType.REPS_WEIGHT) {
+            Spacer(modifier = Modifier.height(12.dp))
+            ProgressionHint(exercise = exercise, state = state, viewModel = viewModel)
+        }
+
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
@@ -308,6 +371,24 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+
+        val levelValue: Float? = when (exercise.trackingType) {
+            TrackingType.REPS -> state.reps.toFloat().takeIf { it > 0f }
+            TrackingType.DURATION -> (state.durationMinutes * 60f).takeIf { it > 0f }
+            else -> null
+        }
+        levelValue?.let { value ->
+            AthleteStandards.levelFor(exercise.id, value)?.let { level ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "🏅 Уровень: ${level.label}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.secondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -606,4 +687,37 @@ private fun DurationForm(state: QuickLogUiState, viewModel: QuickLogViewModel) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp)
     )
+}
+
+/**
+ * Подсказка прогрессии калистеники: следующий уровень цепочки, к которому
+ * можно перейти одним тапом (упражнения пакета должны быть импортированы).
+ */
+@Composable
+private fun ProgressionHint(exercise: Exercise, state: QuickLogUiState, viewModel: QuickLogViewModel) {
+    val chain = ExerciseProgressions.chainFor(exercise.id) ?: return
+    val nextId = chain.nextAfter(exercise.id) ?: return
+    val next = state.allExercises.firstOrNull { it.id == nextId } ?: return
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { viewModel.selectExercise(next) }
+            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = (if (state.reps >= 15) "Делаешь легко? " else "") + "Следующий уровень: ",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "${next.displayName} →",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.secondary
+        )
+    }
 }

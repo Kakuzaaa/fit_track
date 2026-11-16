@@ -2,13 +2,15 @@ package com.example.fitnesstracker.domain.model
 
 /**
  * Категории упражнений по используемому инвентарю.
+ * ⚠️ Хранятся в Room как ordinal — новые значения добавлять ТОЛЬКО в конец.
  */
 enum class ExerciseCategory(val label: String) {
     BODYWEIGHT("Свой вес"),
     PULL_UP_BAR("Турник"),
     DUMBBELLS("Гантели"),
     ABS("Пресс"),
-    CARDIO("Кардио")
+    CARDIO("Кардио"),
+    BARBELL("Штанга")
 }
 
 /**

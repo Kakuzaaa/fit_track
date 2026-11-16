@@ -38,6 +38,7 @@ data class ProfileUiState(
     val weightError: Boolean = false,
     val dailyGoalText: String = "0",
     val dailyGoalError: Boolean = false,
+    val restTimerSeconds: Int = 0,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val exporting: Boolean = false
 )
@@ -58,6 +59,7 @@ class ProfileViewModel(
                     it.copy(
                         weightText = Formatters.number(settings.bodyWeightKg.toFloat()),
                         dailyGoalText = settings.dailyGoalKcal.toString(),
+                        restTimerSeconds = settings.restTimerSeconds,
                         themeMode = settings.themeMode,
                         weightError = false,
                         dailyGoalError = false
@@ -99,6 +101,11 @@ class ProfileViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
+    }
+
+    /** Длительность таймера отдыха; 0 — выключить. */
+    fun setRestTimer(seconds: Int) {
+        viewModelScope.launch { settingsRepository.setRestTimerSeconds(seconds) }
     }
 
     /** Асинхронно строит экспорт истории в JSON или CSV. */

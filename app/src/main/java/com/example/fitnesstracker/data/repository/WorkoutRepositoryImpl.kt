@@ -1,8 +1,10 @@
 package com.example.fitnesstracker.data.repository
 
+import com.example.fitnesstracker.data.local.dao.BestStatsRow
 import com.example.fitnesstracker.data.local.dao.WorkoutLogDao
 import com.example.fitnesstracker.data.mapper.toDomain
 import com.example.fitnesstracker.data.mapper.toEntity
+import com.example.fitnesstracker.domain.model.BestExerciseStats
 import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
@@ -16,6 +18,9 @@ class WorkoutRepositoryImpl(private val dao: WorkoutLogDao) : WorkoutRepository 
 
     override fun observeDayStats(): Flow<List<DayStats>> =
         dao.observeDayStats().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun getBestStats(): List<BestExerciseStats> =
+        dao.getBestStats().map { row: BestStatsRow -> row.toDomain() }
 
     override suspend fun getAllLogs(): List<WorkoutLog> =
         dao.getAllLogs().map { it.toDomain() }

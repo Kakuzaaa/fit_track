@@ -1,8 +1,10 @@
 package com.example.fitnesstracker.data.mapper
 
+import com.example.fitnesstracker.data.local.dao.BestStatsRow
 import com.example.fitnesstracker.data.local.dao.DayStatsRow
 import com.example.fitnesstracker.data.local.entity.ExerciseEntity
 import com.example.fitnesstracker.data.local.entity.WorkoutLogEntity
+import com.example.fitnesstracker.domain.model.BestExerciseStats
 import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.Exercise
 import com.example.fitnesstracker.domain.model.WorkoutLog
@@ -60,4 +62,10 @@ fun DayStatsRow.toDomain(): DayStats = DayStats(
     totalCalories = totalCalories,
     totalReps = totalReps,
     entries = entries
+)
+
+fun BestStatsRow.toDomain(): BestExerciseStats = BestExerciseStats(
+    exerciseId = exerciseId,
+    bestReps = bestReps,
+    bestSeconds = bestSeconds
 )

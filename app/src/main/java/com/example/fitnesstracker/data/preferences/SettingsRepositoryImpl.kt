@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.fitnesstracker.domain.model.ThemeMode
 import com.example.fitnesstracker.domain.model.UserSettings
@@ -23,6 +24,7 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
         val BODY_WEIGHT = doublePreferencesKey("body_weight_kg")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DAILY_GOAL = intPreferencesKey("daily_goal_kcal")
+        val REST_TIMER = intPreferencesKey("rest_timer_seconds")
     }
 
     override val settings: Flow<UserSettings> = context.userSettingsDataStore.data.map { prefs ->
@@ -31,7 +33,8 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
             themeMode = prefs[Keys.THEME_MODE]?.let { stored ->
                 ThemeMode.entries.firstOrNull { it.name == stored }
             } ?: ThemeMode.SYSTEM,
-            dailyGoalKcal = prefs[Keys.DAILY_GOAL] ?: UserSettings.DEFAULT_DAILY_GOAL_KCAL
+            dailyGoalKcal = prefs[Keys.DAILY_GOAL] ?: UserSettings.DEFAULT_DAILY_GOAL_KCAL,
+            restTimerSeconds = prefs[Keys.REST_TIMER] ?: UserSettings.DEFAULT_REST_TIMER_SECONDS
         )
     }
 
@@ -50,6 +53,12 @@ class SettingsRepositoryImpl(private val context: Context) : SettingsRepository 
     override suspend fun setDailyGoalKcal(goalKcal: Int) {
         context.userSettingsDataStore.edit { prefs ->
             prefs[Keys.DAILY_GOAL] = goalKcal.coerceIn(0, 10_000)
+        }
+    }
+
+    override suspend fun setRestTimerSeconds(seconds: Int) {
+        context.userSettingsDataStore.edit { prefs ->
+            prefs[Keys.REST_TIMER] = seconds.coerceIn(0, 600)
         }
     }
 }

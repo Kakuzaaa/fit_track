@@ -54,6 +54,8 @@ import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.EmptyState
 import com.example.fitnesstracker.ui.components.WeeklyBarChart
 import com.example.fitnesstracker.ui.components.workoutDetails
+import com.example.fitnesstracker.util.AthleteLevel
+import com.example.fitnesstracker.util.AthleteStandards
 import com.example.fitnesstracker.util.CalorieCalculator
 import com.example.fitnesstracker.util.Formatters
 import java.time.LocalDate
@@ -72,6 +74,7 @@ fun HistoryScreen() {
     val dayLogs by viewModel.dayLogs.collectAsStateWithLifecycle()
     val summaries by viewModel.daySummaries.collectAsStateWithLifecycle()
     val weekStats by viewModel.weekStats.collectAsStateWithLifecycle()
+    val bestStats by viewModel.bestStats.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize()) {
         DateStrip(
@@ -113,7 +116,10 @@ fun HistoryScreen() {
                 }
             } else {
                 items(summaries, key = { it.name }) { summary ->
-                    ExpandableExerciseCard(summary = summary)
+                    val bestLevel = bestStats[summary.entries.first().exerciseId]?.let {
+                        AthleteStandards.levelForStats(it.exerciseId, it.bestReps, it.bestSeconds)
+                    }
+                    ExpandableExerciseCard(summary = summary, bestLevel = bestLevel)
                 }
             }
             item(key = "bottom_space") { Spacer(modifier = Modifier.height(16.dp)) }
@@ -315,7 +321,7 @@ private fun trackingIcon(trackingType: TrackingType): ImageVector = when (tracki
 }
 
 @Composable
-private fun ExpandableExerciseCard(summary: DayExerciseSummary) {
+private fun ExpandableExerciseCard(summary: DayExerciseSummary, bestLevel: AthleteLevel?) {
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -367,6 +373,13 @@ private fun ExpandableExerciseCard(summary: DayExerciseSummary) {
                     modifier = Modifier.padding(top = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    if (bestLevel != null) {
+                        Text(
+                            text = "🏅 Уровень атлета: ${bestLevel.label}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
                     summary.entries.forEach { entry ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(

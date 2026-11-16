@@ -2,6 +2,10 @@ package com.example.fitnesstracker.ui.components
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +28,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -51,6 +56,18 @@ fun categoryIcon(category: ExerciseCategory): ImageVector = when (category) {
     ExerciseCategory.DUMBBELLS -> Icons.Filled.FitnessCenter
     ExerciseCategory.ABS -> Icons.Filled.Bolt
     ExerciseCategory.CARDIO -> Icons.Filled.DirectionsRun
+    ExerciseCategory.BARBELL -> Icons.Filled.ViewInAr
+}
+
+/** Короткая вибрация (конец таймера отдыха). */
+fun vibrateOnce(context: Context) {
+    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Vibrator::class.java)
+    }
+    vibrator?.vibrate(VibrationEffect.createOneShot(600, VibrationEffect.DEFAULT_AMPLITUDE))
 }
 
 /** Иконка для строки записи (по данным, без обращения к справочнику). */

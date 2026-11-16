@@ -59,6 +59,12 @@ object Formatters {
         return builder.toString()
     }
 
+    /** Отсчёт таймера: «01:23». */
+    fun countdown(millis: Long): String {
+        val totalSeconds = (millis / 1000).coerceAtLeast(0)
+        return String.format(java.util.Locale.US, "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
+    }
+
     /**
      * Русское множественное число: plural(3, "подход", "подхода", "подходов") → «подхода».
      */

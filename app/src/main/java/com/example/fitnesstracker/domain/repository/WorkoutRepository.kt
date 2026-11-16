@@ -1,5 +1,6 @@
 package com.example.fitnesstracker.domain.repository
 
+import com.example.fitnesstracker.domain.model.BestExerciseStats
 import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import kotlinx.coroutines.flow.Flow
@@ -12,6 +13,9 @@ interface WorkoutRepository {
     fun observeLogsForDay(dateEpochDay: Long): Flow<List<WorkoutLog>>
 
     fun observeDayStats(): Flow<List<DayStats>>
+
+    /** Лучший результат по каждому упражнению за всю историю (нормативы). */
+    suspend fun getBestStats(): List<BestExerciseStats>
 
     suspend fun getAllLogs(): List<WorkoutLog>
 

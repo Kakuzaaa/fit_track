@@ -18,6 +18,15 @@ data class DayStatsRow(
     val entries: Int
 )
 
+/**
+ * POJO: лучший результат по каждому упражнению за всю историю (нормативы).
+ */
+data class BestStatsRow(
+    val exerciseId: Long,
+    val bestReps: Int,
+    val bestSeconds: Int
+)
+
 @Dao
 interface WorkoutLogDao {
 
@@ -30,6 +39,13 @@ interface WorkoutLogDao {
             "FROM workout_logs GROUP BY dateEpochDay ORDER BY dateEpochDay DESC"
     )
     fun observeDayStats(): Flow<List<DayStatsRow>>
+
+    @Query(
+        "SELECT exerciseId, MAX(COALESCE(reps, 0)) AS bestReps, " +
+            "CAST(MAX(COALESCE(durationMinutes, 0)) * 60 AS INTEGER) AS bestSeconds " +
+            "FROM workout_logs GROUP BY exerciseId"
+    )
+    suspend fun getBestStats(): List<BestStatsRow>
 
     @Query("SELECT * FROM workout_logs ORDER BY timestamp DESC")
     suspend fun getAllLogs(): List<WorkoutLogEntity>

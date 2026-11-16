@@ -61,6 +61,11 @@ class TodayViewModel(
         .map { it.dailyGoalKcal }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    /** Таймер отдыха после подхода, сек; 0 — выключен. */
+    val restTimerSeconds: StateFlow<Int> = settingsRepository.settings
+        .map { it.restTimerSeconds }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     /** Вызывается при каждом входе на экран «Сегодня». */
     fun refreshToday() {
         _todayEpochDay.value = LocalDate.now().toEpochDay()

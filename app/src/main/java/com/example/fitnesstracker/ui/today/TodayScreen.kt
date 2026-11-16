@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -17,14 +18,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -45,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -56,10 +61,12 @@ import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.EmptyState
 import com.example.fitnesstracker.ui.components.WorkoutLogRow
+import com.example.fitnesstracker.ui.components.vibrateOnce
 import com.example.fitnesstracker.ui.quicklog.QuickLogSheet
 import com.example.fitnesstracker.ui.quicklog.QuickLogViewModel
 import com.example.fitnesstracker.util.Formatters
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -88,17 +95,48 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
     val summary by viewModel.summary.collectAsStateWithLifecycle()
     val streak by viewModel.streak.collectAsStateWithLifecycle()
     val dailyGoalKcal by viewModel.dailyGoalKcal.collectAsStateWithLifecycle()
+    val restTimerSeconds by viewModel.restTimerSeconds.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showQuickLog by remember { mutableStateOf(false) }
+
+    // Таймер отдыха: запускается после сохранения нового подхода или «+1».
+    var restEndsAt by remember { mutableStateOf(0L) }
+    var restTotalMs by remember { mutableStateOf(0L) }
+    var nowMs by remember { mutableStateOf(0L) }
+
+    val startRestTimer = {
+        if (restTimerSeconds > 0) {
+            restTotalMs = restTimerSeconds * 1000L
+            restEndsAt = System.currentTimeMillis() + restTotalMs
+        }
+    }
 
     // Реакция на сохранение из QuickLogSheet: закрыть шит и показать снекбар.
     LaunchedEffect(Unit) {
         quickLogViewModel.saved.collect { event ->
             showQuickLog = false
+            if (!event.isEdit) {
+                startRestTimer()
+            }
             val verb = if (event.isEdit) "Обновлено" else "Записано"
             snackbarHostState.showSnackbar(
                 message = "$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
             )
+        }
+    }
+
+    // Обратный отсчёт отдыха; по завершении — вибрация и снекбар.
+    LaunchedEffect(restEndsAt) {
+        if (restEndsAt > 0L) {
+            while (System.currentTimeMillis() < restEndsAt) {
+                nowMs = System.currentTimeMillis()
+                delay(250)
+            }
+            restEndsAt = 0L
+            nowMs = 0L
+            vibrateOnce(context)
+            snackbarHostState.showSnackbar("Отдых закончен — за работу 💪")
         }
     }
 
@@ -144,6 +182,7 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
                         },
                         onRepeat = {
                             viewModel.repeat(log)
+                            startRestTimer()
                             scope.launch {
                                 snackbarHostState.showSnackbar(
                                     message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
@@ -166,6 +205,56 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
                     )
                 }
                 item(key = "bottom_space") { Spacer(modifier = Modifier.height(72.dp)) }
+            }
+        }
+
+        // Плавающий таймер отдыха над FAB.
+        val remainingMs = restEndsAt - nowMs
+        if (restEndsAt > 0L && remainingMs > 0) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 96.dp)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Timer,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Отдых: ${Formatters.countdown(remainingMs)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        IconButton(
+                            onClick = { restEndsAt = 0L },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Остановить таймер отдыха",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { (remainingMs.toFloat() / restTotalMs.coerceAtLeast(1L)).coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
             }
         }
 

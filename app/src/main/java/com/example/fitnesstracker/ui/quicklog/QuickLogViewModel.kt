@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitnesstracker.domain.model.Exercise
 import com.example.fitnesstracker.domain.model.ExerciseCategory
+import com.example.fitnesstracker.domain.model.ExercisePackage
 import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.ExerciseRepository
@@ -61,6 +62,9 @@ class QuickLogViewModel(
 
     private val _saved = MutableSharedFlow<SavedEvent>(extraBufferCapacity = 1)
     val saved: SharedFlow<SavedEvent> = _saved.asSharedFlow()
+
+    /** Все доступные пакеты упражнений (показываются, пока не импортированы). */
+    val packages: List<ExercisePackage> = exerciseRepository.packages
 
     private var bodyWeightKg = CalorieCalculator.DEFAULT_BODY_WEIGHT_KG
 
@@ -197,6 +201,11 @@ class QuickLogViewModel(
             dismissCreateDialog()
             exerciseRepository.getExercise(id)?.let { selectExercise(it) }
         }
+    }
+
+    /** Импорт пакета упражнений в справочник (список обновится через Flow). */
+    fun importPackage(packageId: String) {
+        viewModelScope.launch { exerciseRepository.importExercisePackage(packageId) }
     }
 
     fun save() {

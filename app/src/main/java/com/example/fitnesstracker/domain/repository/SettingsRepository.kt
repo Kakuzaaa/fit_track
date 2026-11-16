@@ -15,4 +15,7 @@ interface SettingsRepository {
     suspend fun setThemeMode(mode: ThemeMode)
 
     suspend fun setDailyGoalKcal(goalKcal: Int)
+
+    /** Длительность таймера отдыха после подхода; 0 — выключен. */
+    suspend fun setRestTimerSeconds(seconds: Int)
 }
