@@ -48,7 +48,10 @@ data class QuickLogUiState(
     val previewKcal: Int = 0,
     val showCreateDialog: Boolean = false,
     /** Запись в режиме редактирования (null — обычное добавление). */
-    val editingLog: WorkoutLog? = null
+    val editingLog: WorkoutLog? = null,
+    /** Своё упражнение, открытое long-press'ом для правки/удаления. */
+    val editingExercise: Exercise? = null,
+    val showEditExerciseDialog: Boolean = false
 )
 
 class QuickLogViewModel(
@@ -150,7 +153,17 @@ class QuickLogViewModel(
      */
     fun prepareForNewEntry() {
         _state.update {
-            recalculate(applyFilters(it.copy(selected = null, editingLog = null, showCreateDialog = false)))
+            recalculate(
+                applyFilters(
+                    it.copy(
+                        selected = null,
+                        editingLog = null,
+                        showCreateDialog = false,
+                        showEditExerciseDialog = false,
+                        editingExercise = null
+                    )
+                )
+            )
         }
     }
 
@@ -188,6 +201,56 @@ class QuickLogViewModel(
 
     fun dismissCreateDialog() {
         _state.update { it.copy(showCreateDialog = false) }
+    }
+
+    /** Long-press по своему упражнению в списке — открыть правку/удаление. */
+    fun onExerciseLongPress(exercise: Exercise) {
+        if (!exercise.isCustom) return
+        _state.update { it.copy(editingExercise = exercise, showEditExerciseDialog = true) }
+    }
+
+    fun dismissEditExerciseDialog() {
+        _state.update { it.copy(showEditExerciseDialog = false, editingExercise = null) }
+    }
+
+    fun saveEditedExercise(
+        name: String,
+        category: ExerciseCategory,
+        gripType: String?,
+        trackingType: TrackingType
+    ) {
+        val original = _state.value.editingExercise ?: return
+        // При смене типа учёта фактор пересчитывается под новый тип, иначе сохраняется прежний.
+        val factor = if (trackingType == original.trackingType) {
+            original.baseMetOrKcalFactor
+        } else {
+            when (trackingType) {
+                TrackingType.REPS -> 0.35
+                TrackingType.REPS_WEIGHT -> 0.30
+                TrackingType.DURATION -> 3.8
+                TrackingType.CARDIO_SPEED -> 0.0
+            }
+        }
+        viewModelScope.launch {
+            exerciseRepository.updateCustomExercise(
+                original.copy(
+                    name = name.trim(),
+                    category = category,
+                    gripType = gripType?.trim()?.takeIf { it.isNotEmpty() },
+                    trackingType = trackingType,
+                    baseMetOrKcalFactor = factor
+                )
+            )
+            dismissEditExerciseDialog()
+        }
+    }
+
+    fun deleteEditedExercise() {
+        val exercise = _state.value.editingExercise ?: return
+        viewModelScope.launch {
+            exerciseRepository.deleteCustomExercise(exercise)
+            dismissEditExerciseDialog()
+        }
     }
 
     fun createCustomExercise(

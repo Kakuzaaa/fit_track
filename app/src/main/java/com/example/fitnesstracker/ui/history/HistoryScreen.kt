@@ -330,7 +330,7 @@ private fun ExpandableExerciseCard(summary: DayExerciseSummary, bestLevel: Athle
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {

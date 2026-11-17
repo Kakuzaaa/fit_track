@@ -158,53 +158,59 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (logs.isEmpty()) {
-            EmptyState(
-                icon = Icons.Filled.Insights,
-                title = "Сегодня ещё нет тренировок",
-                subtitle = "Нажмите «Записать упражнение» и добавьте первый подход"
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Сводка видна всегда — даже когда лента пуста (стрик и цель не пропадают).
+            TodaySummaryCard(
+                summary = summary,
+                dailyGoalKcal = dailyGoalKcal,
+                streak = streak,
+                modifier = Modifier.padding(16.dp)
             )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item(key = "summary") {
-                    TodaySummaryCard(summary = summary, dailyGoalKcal = dailyGoalKcal, streak = streak)
-                }
-                items(logs, key = { it.id }) { log ->
-                    SwipeToDeleteWorkoutRow(
-                        log = log,
-                        onEdit = {
-                            quickLogViewModel.startEditing(log)
-                            showQuickLog = true
-                        },
-                        onRepeat = {
-                            viewModel.repeat(log)
-                            startRestTimer()
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
-                                )
-                            }
-                        },
-                        onDelete = {
-                            viewModel.delete(log)
-                            scope.launch {
-                                val result = snackbarHostState.showSnackbar(
-                                    message = "Удалено: ${log.exerciseNameSnapshot}",
-                                    actionLabel = "Отменить",
-                                    withDismissAction = true
-                                )
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    viewModel.restore(log)
+            if (logs.isEmpty()) {
+                EmptyState(
+                    icon = Icons.Filled.Insights,
+                    title = "Сегодня ещё нет тренировок",
+                    subtitle = "Нажмите «Записать упражнение» и добавьте первый подход"
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(logs, key = { it.id }) { log ->
+                        SwipeToDeleteWorkoutRow(
+                            log = log,
+                            onEdit = {
+                                quickLogViewModel.startEditing(log)
+                                showQuickLog = true
+                            },
+                            onRepeat = {
+                                viewModel.repeat(log)
+                                startRestTimer()
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                                    )
+                                }
+                            },
+                            onDelete = {
+                                viewModel.delete(log)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Удалено: ${log.exerciseNameSnapshot}",
+                                        actionLabel = "Отменить",
+                                        withDismissAction = true
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.restore(log)
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
+                    item(key = "bottom_space") { Spacer(modifier = Modifier.height(72.dp)) }
                 }
-                item(key = "bottom_space") { Spacer(modifier = Modifier.height(72.dp)) }
             }
         }
 
@@ -282,9 +288,14 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
  * необязательные прогресс дневной цели и стрик.
  */
 @Composable
-private fun TodaySummaryCard(summary: TodaySummary, dailyGoalKcal: Int, streak: Int) {
+private fun TodaySummaryCard(
+    summary: TodaySummary,
+    dailyGoalKcal: Int,
+    streak: Int,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {

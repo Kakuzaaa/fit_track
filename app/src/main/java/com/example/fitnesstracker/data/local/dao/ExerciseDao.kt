@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import com.example.fitnesstracker.data.local.entity.ExerciseEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -24,6 +25,9 @@ interface ExerciseDao {
 
     @Insert
     suspend fun insert(exercise: ExerciseEntity): Long
+
+    @Update
+    suspend fun update(exercise: ExerciseEntity)
 
     @Delete
     suspend fun delete(exercise: ExerciseEntity)

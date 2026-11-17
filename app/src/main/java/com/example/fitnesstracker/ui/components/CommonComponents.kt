@@ -7,6 +7,8 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +26,6 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material.icons.filled.Timer
@@ -33,10 +34,11 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -119,8 +121,11 @@ private fun LogIconBadge(icon: ImageVector, modifier: Modifier = Modifier) {
 
 /**
  * Строка журнала: время, название, хват, параметры, ккал.
- * [onRepeat] — быстрый повтор подхода «+1 такой же»,
- * [onEdit] — открытие записи в режиме редактирования.
+ * Карточка НЕПРОЗРАЧНАЯ: под ней в «Сегодня» лежит красный фон свайп-удаления,
+ * и полупрозрачность просвечивала его сквозь запись (визуальный баг в тёмной теме).
+ *
+ * [onRepeat] — кнопка «+N»: повторить ровно такой же подход
+ * («сделал 8 подтягиваний — добавь ещё 8»), [onEdit] — редактирование записи.
  */
 @Composable
 fun WorkoutLogRow(
@@ -133,7 +138,7 @@ fun WorkoutLogRow(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
         Row(
@@ -146,7 +151,7 @@ fun WorkoutLogRow(
                 Text(
                     text = log.exerciseNameSnapshot,
                     style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
@@ -157,22 +162,31 @@ fun WorkoutLogRow(
             }
             Spacer(modifier = Modifier.width(4.dp))
             if (onEdit != null) {
-                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = "Редактировать запись",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                CompactIconButton(
+                    icon = Icons.Outlined.Edit,
+                    contentDescription = "Редактировать запись",
+                    onClick = onEdit
+                )
             }
             if (onRepeat != null) {
-                IconButton(onClick = onRepeat, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        imageVector = Icons.Filled.Repeat,
-                        contentDescription = "Повторить такой же подход",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
+                val interaction = remember { MutableInteractionSource() }
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(
+                            interactionSource = interaction,
+                            indication = null,
+                            onClick = onRepeat
+                        )
+                ) {
+                    Text(
+                        text = repeatLabel(log),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
@@ -191,6 +205,40 @@ fun WorkoutLogRow(
                 )
             }
         }
+    }
+}
+
+/** Метка кнопки быстрого повтора: «+8» по повторениям, «+1» для кардио/статики. */
+private fun repeatLabel(log: WorkoutLog): String = when {
+    log.reps != null && log.reps > 0 -> "+${log.reps}"
+    else -> "+1"
+}
+
+/** Компактная иконка-кнопка без квадратного bounded-ripple. */
+@Composable
+private fun CompactIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 

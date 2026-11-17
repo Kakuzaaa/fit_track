@@ -61,6 +61,8 @@ import com.example.fitnesstracker.domain.model.ExerciseCategory
 import com.example.fitnesstracker.domain.model.ExercisePackage
 import com.example.fitnesstracker.domain.model.ExerciseProgressions
 import com.example.fitnesstracker.domain.model.TrackingType
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import com.example.fitnesstracker.ui.components.categoryIcon
 import com.example.fitnesstracker.util.AthleteStandards
 import com.example.fitnesstracker.util.Formatters
@@ -98,6 +100,15 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onDismiss: () -> Unit) {
             onCreate = { name, category, grip, trackingType ->
                 viewModel.createCustomExercise(name, category, grip, trackingType)
             }
+        )
+    }
+
+    if (state.showEditExerciseDialog && state.editingExercise != null) {
+        EditExerciseDialog(
+            exercise = state.editingExercise!!,
+            onSave = viewModel::saveEditedExercise,
+            onDelete = viewModel::deleteEditedExercise,
+            onDismiss = viewModel::dismissEditExerciseDialog
         )
     }
 }
@@ -159,10 +170,24 @@ private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogVie
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         items(state.filteredExercises, key = { it.id }) { exercise ->
-            ExerciseListItem(exercise = exercise, onClick = { viewModel.selectExercise(exercise) })
+            ExerciseListItem(
+                exercise = exercise,
+                onClick = { viewModel.selectExercise(exercise) },
+                onLongClick = { viewModel.onExerciseLongPress(exercise) }
+            )
         }
         item(key = "create_custom") {
             AddCustomExerciseItem(onClick = { viewModel.showCreateDialog() })
+        }
+        if (state.allExercises.any { it.isCustom }) {
+            item(key = "custom_hint") {
+                Text(
+                    text = "Долгое нажатие на «своё» упражнение — изменить или удалить",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
         }
 
         // Пакеты упражнений — пока не импортированы.
@@ -219,13 +244,17 @@ private fun ExercisePackageCard(pack: ExercisePackage, onImport: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ExerciseListItem(exercise: Exercise, onClick: () -> Unit) {
+private fun ExerciseListItem(exercise: Exercise, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

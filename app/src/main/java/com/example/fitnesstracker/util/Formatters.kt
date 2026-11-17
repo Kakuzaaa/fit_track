@@ -43,17 +43,20 @@ object Formatters {
         }
     }
 
-    /** Длительность: 45.0 → «45 мин», 1.5 → «1,5 мин», 90 → «1 ч 30 мин». */
+    /** Длительность: 45.0 → «45 мин», 1.5 → «1,5 мин», 90 → «1 ч», 73.2 → «1 ч 13,2 мин».
+     *  Вся арифметика в целых десятых минуты — без float-хвостов вида «13,200000000000003». */
     fun minutes(minutes: Float): String {
-        val total = (minutes * 10).roundToInt() / 10.0
-        if (total <= 0.0) return "0 мин"
-        val hours = total.toLong() / 60
-        val rest = total - hours * 60
+        val totalTenths = (minutes * 10).roundToInt()
+        if (totalTenths <= 0) return "0 мин"
+        val hours = totalTenths / 600
+        val restTenths = totalTenths % 600
         val builder = StringBuilder()
         if (hours > 0) builder.append(hours).append(" ч")
-        if (rest > 0.0) {
+        if (restTenths > 0) {
             if (hours > 0) builder.append(' ')
-            val restText = if (rest % 1.0 == 0.0) rest.toLong().toString() else rest.toString().replace('.', ',')
+            val wholeMinutes = restTenths / 10
+            val tenths = restTenths % 10
+            val restText = if (tenths == 0) wholeMinutes.toString() else "$wholeMinutes,$tenths"
             builder.append(restText).append(" мин")
         }
         return builder.toString()

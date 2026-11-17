@@ -57,6 +57,10 @@ class ExerciseRepositoryImpl(private val dao: ExerciseDao) : ExerciseRepository 
         return missing.size
     }
 
+    override suspend fun updateCustomExercise(exercise: Exercise) {
+        dao.update(exercise.toEntity())
+    }
+
     override suspend fun deleteCustomExercise(exercise: Exercise) {
         dao.delete(exercise.toEntity())
     }

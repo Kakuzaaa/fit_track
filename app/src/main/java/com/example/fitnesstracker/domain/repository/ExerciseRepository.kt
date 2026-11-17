@@ -32,5 +32,9 @@ interface ExerciseRepository {
      */
     suspend fun importExercisePackage(packageId: String): Int
 
+    /** Правка своего упражнения (имя, хват, категория, тип учёта). */
+    suspend fun updateCustomExercise(exercise: Exercise)
+
+    /** Удаление своего упражнения (связанные записи удалятся каскадом). */
     suspend fun deleteCustomExercise(exercise: Exercise)
 }
