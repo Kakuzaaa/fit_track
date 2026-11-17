@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,6 +62,7 @@ import com.example.fitnesstracker.domain.model.ExerciseCategory
 import com.example.fitnesstracker.domain.model.ExercisePackage
 import com.example.fitnesstracker.domain.model.ExerciseProgressions
 import com.example.fitnesstracker.domain.model.TrackingType
+import com.example.fitnesstracker.data.guides.ExerciseGuides
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import com.example.fitnesstracker.ui.components.categoryIcon
@@ -117,6 +119,8 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onDismiss: () -> Unit) {
 
 @Composable
 private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogViewModel) {
+    var techniqueExercise by remember { mutableStateOf<Exercise?>(null) }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -173,7 +177,8 @@ private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogVie
             ExerciseListItem(
                 exercise = exercise,
                 onClick = { viewModel.selectExercise(exercise) },
-                onLongClick = { viewModel.onExerciseLongPress(exercise) }
+                onLongClick = { viewModel.onExerciseLongPress(exercise) },
+                onShowTechnique = { techniqueExercise = exercise }
             )
         }
         item(key = "create_custom") {
@@ -211,6 +216,17 @@ private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogVie
             }
         }
     }
+
+    techniqueExercise?.let { ex ->
+        val guide = ExerciseGuides.guideFor(ex.id)
+        if (guide != null) {
+            ExerciseTechniqueSheet(
+                exercise = ex,
+                guide = guide,
+                onDismiss = { techniqueExercise = null }
+            )
+        }
+    }
 }
 
 @Composable
@@ -246,7 +262,12 @@ private fun ExercisePackageCard(pack: ExercisePackage, onImport: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ExerciseListItem(exercise: Exercise, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun ExerciseListItem(
+    exercise: Exercise,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onShowTechnique: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -287,6 +308,19 @@ private fun ExerciseListItem(exercise: Exercise, onClick: () -> Unit, onLongClic
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+        if (onShowTechnique != null && ExerciseGuides.hasGuide(exercise.id)) {
+            IconButton(
+                onClick = onShowTechnique,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Info,
+                    contentDescription = "Техника выполнения",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
@@ -336,6 +370,8 @@ private fun AddCustomExerciseItem(onClick: () -> Unit) {
 
 @Composable
 private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, viewModel: QuickLogViewModel) {
+    var showTechnique by remember { mutableStateOf(false) }
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -367,6 +403,15 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
                         text = grip,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (ExerciseGuides.hasGuide(exercise.id)) {
+                IconButton(onClick = { showTechnique = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Техника выполнения",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -432,6 +477,17 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
             Text(
                 text = if (state.editingLog != null) "Сохранить изменения" else "Сохранить",
                 style = MaterialTheme.typography.titleMedium
+            )
+        }
+    }
+
+    if (showTechnique) {
+        val guide = ExerciseGuides.guideFor(exercise.id)
+        if (guide != null) {
+            ExerciseTechniqueSheet(
+                exercise = exercise,
+                guide = guide,
+                onDismiss = { showTechnique = false }
             )
         }
     }

@@ -15,8 +15,8 @@ android {
         applicationId = "com.example.fitnesstracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.3.0"
+        versionCode = 7
+        versionName = "1.4.0"
     }
 
     buildTypes {
@@ -73,6 +73,9 @@ dependencies {
 
     // Корутины
     implementation(libs.kotlinx.coroutines.android)
+
+    // Векторные анимации
+    implementation(libs.lottie.compose)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
