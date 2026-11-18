@@ -83,7 +83,10 @@ fun HistoryScreen() {
             onSelect = viewModel::selectDay
         )
 
-        WeeklyChartCard(week = weekStats)
+        WeeklyChartCard(
+            week = weekStats,
+            selectedDate = LocalDate.ofEpochDay(selectedDay)
+        )
 
         val totalKcal = dayLogs.sumOf { it.caloriesBurned }
         val cardioMinutes = dayLogs.filter { it.speedKmh != null }
@@ -202,7 +205,10 @@ private fun DateStrip(statsByDay: Map<Long, DayStats>, selectedDay: Long, onSele
  * Карточка «Последние 7 дней» с переключателем метрик: ккал / повторения.
  */
 @Composable
-private fun WeeklyChartCard(week: List<Pair<LocalDate, DayStats>>) {
+private fun WeeklyChartCard(
+    week: List<Pair<LocalDate, DayStats>>,
+    selectedDate: LocalDate? = null
+) {
     var metric by rememberSaveable { mutableIntStateOf(0) }
 
     Card(
@@ -240,7 +246,8 @@ private fun WeeklyChartCard(week: List<Pair<LocalDate, DayStats>>) {
             Spacer(modifier = Modifier.height(12.dp))
             WeeklyBarChart(
                 days = week.map { it.first },
-                values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
+                values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps },
+                selectedDate = selectedDate
             )
             Spacer(modifier = Modifier.height(8.dp))
             val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }

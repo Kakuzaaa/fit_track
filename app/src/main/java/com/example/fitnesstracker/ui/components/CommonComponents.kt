@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material.icons.filled.Timer
@@ -181,13 +182,34 @@ fun WorkoutLogRow(
                             onClick = onRepeat
                         )
                 ) {
-                    Text(
-                        text = repeatLabel(log),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
+                    if (log.reps != null && log.reps > 0) {
+                        Text(
+                            text = "+${log.reps}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Repeat,
+                                contentDescription = "Повторить запись",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Повтор",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(4.dp))
@@ -206,12 +228,6 @@ fun WorkoutLogRow(
             }
         }
     }
-}
-
-/** Метка кнопки быстрого повтора: «+8» по повторениям, «+1» для кардио/статики. */
-private fun repeatLabel(log: WorkoutLog): String = when {
-    log.reps != null && log.reps > 0 -> "+${log.reps}"
-    else -> "+1"
 }
 
 /** Компактная иконка-кнопка без квадратного bounded-ripple. */

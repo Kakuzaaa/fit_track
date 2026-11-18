@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fitnesstracker.util.Formatters
 import java.time.LocalDate
@@ -26,14 +27,17 @@ import java.time.LocalDate
 private const val CHART_BAR_HEIGHT_DP = 96
 
 /**
- * Столбчатая диаграмма за 7 дней: подпись значения над столбцом,
- * день недели под ним, «сегодня» выделено цветом.
+ * Современная столбчатая диаграмма за 7 дней (стиль спортивных трекеров):
+ *  - полупрозрачные фоновые колонки (треки), придающие диаграмме глубину;
+ *  - плавные скруглённые вершины заполненных столбцов;
+ *  - чёткая подсветка текущего или выбранного в ленте дня.
  */
 @Composable
 fun WeeklyBarChart(
     days: List<LocalDate>,
     values: List<Int>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectedDate: LocalDate? = null
 ) {
     val maxValue = (values.maxOrNull() ?: 0).coerceAtLeast(1)
     val today = LocalDate.now()
@@ -41,24 +45,28 @@ fun WeeklyBarChart(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height((CHART_BAR_HEIGHT_DP + 52).dp),
+            .height((CHART_BAR_HEIGHT_DP + 54).dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         days.forEachIndexed { index, date ->
             val value = values.getOrNull(index) ?: 0
             val isToday = date == today
+            val isSelected = selectedDate != null && date == selectedDate
+            val isHighlighted = isSelected || (selectedDate == null && isToday)
+
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom
             ) {
                 Text(
-                    text = Formatters.number(value.toFloat()),
+                    text = if (value > 0) Formatters.number(value.toFloat()) else "0",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (value > 0) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    fontWeight = if (isHighlighted && value > 0) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        isHighlighted && value > 0 -> MaterialTheme.colorScheme.primary
+                        value > 0 -> MaterialTheme.colorScheme.onSurface
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                     },
                     maxLines = 1
                 )
@@ -69,37 +77,52 @@ fun WeeklyBarChart(
                         .height(CHART_BAR_HEIGHT_DP.dp),
                     contentAlignment = Alignment.BottomCenter
                 ) {
-                    val fraction by animateFloatAsState(
-                        targetValue = value.toFloat() / maxValue,
-                        animationSpec = tween(durationMillis = 450),
-                        label = "bar"
-                    )
+                    // Фоновый вертикальный трек-пилон для ощущения глубины
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(
-                                (CHART_BAR_HEIGHT_DP.dp * fraction)
-                                    .coerceAtLeast(if (value > 0) 6.dp else 3.dp)
-                            )
-                            .clip(RoundedCornerShape(6.dp))
+                            .height(CHART_BAR_HEIGHT_DP.dp)
+                            .clip(RoundedCornerShape(8.dp))
                             .background(
                                 when {
-                                    value == 0 -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                                    isToday -> MaterialTheme.colorScheme.primary
-                                    else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                                    isHighlighted -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                                 }
                             )
                     )
+
+                    // Анимированный заполненный столбец
+                    val fraction by animateFloatAsState(
+                        targetValue = if (maxValue > 0) value.toFloat() / maxValue else 0f,
+                        animationSpec = tween(durationMillis = 450),
+                        label = "bar"
+                    )
+                    if (value > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(
+                                    (CHART_BAR_HEIGHT_DP.dp * fraction)
+                                        .coerceAtLeast(8.dp)
+                                )
+                                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 4.dp, bottomEnd = 4.dp))
+                                .background(
+                                    when {
+                                        isHighlighted -> MaterialTheme.colorScheme.primary
+                                        else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                                    }
+                                )
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = Formatters.weekdayShort(date),
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (isToday) androidx.compose.ui.text.font.FontWeight.SemiBold else null,
-                    color = if (isToday) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        isHighlighted -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
             }

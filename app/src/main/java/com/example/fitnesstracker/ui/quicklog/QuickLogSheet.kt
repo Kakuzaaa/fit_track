@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
@@ -40,6 +41,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -310,24 +312,37 @@ private fun ExerciseListItem(
             )
         }
         if (onShowTechnique != null && ExerciseGuides.hasGuide(exercise.id)) {
-            IconButton(
-                onClick = onShowTechnique,
-                modifier = Modifier.size(36.dp)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onShowTechnique)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = "Техника выполнения",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Техника выполнения",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }
 }
 
 private fun exerciseSubtitle(exercise: Exercise): String {
-    val base = exercise.gripType ?: exercise.category.label
-    return if (exercise.isCustom) "$base · своё" else base
+    val guide = ExerciseGuides.guideFor(exercise.id)
+    val muscles = guide?.primaryMuscles?.take(2)?.joinToString(", ")
+    val detail = exercise.gripType ?: exercise.category.label
+    val text = when {
+        muscles != null && exercise.gripType != null -> "$detail · $muscles"
+        muscles != null -> "$muscles · $detail"
+        else -> detail
+    }
+    return if (exercise.isCustom) "$text · своё" else text
 }
 
 @Composable
@@ -417,7 +432,65 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        if (ExerciseGuides.hasGuide(exercise.id)) {
+            val guide = ExerciseGuides.guideFor(exercise.id)
+            Spacer(modifier = Modifier.height(6.dp))
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { showTechnique = true }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Техника выполнения и анимация",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        guide?.let {
+                            Text(
+                                text = it.primaryMuscles.joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        } else {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         when (exercise.trackingType) {
             TrackingType.REPS -> RepsForm(state = state, viewModel = viewModel)
@@ -729,7 +802,7 @@ private fun CardioForm(exercise: Exercise, state: QuickLogUiState, viewModel: Qu
     if (state.cardioDurationMinutes == null && state.distanceKm > 0f && state.speedKmh > 0f) {
         Text(
             text = "Длительность не указана — рассчитаем из расстояния: " +
-                "≈ ${Formatters.number(viewModel.effectiveCardioMinutes(state).toFloat())} мин",
+                "≈ ${Formatters.minutes(viewModel.effectiveCardioMinutes(state).toFloat())}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 6.dp)

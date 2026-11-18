@@ -43,23 +43,31 @@ object Formatters {
         }
     }
 
-    /** Длительность: 45.0 → «45 мин», 1.5 → «1,5 мин», 90 → «1 ч», 73.2 → «1 ч 13,2 мин».
-     *  Вся арифметика в целых десятых минуты — без float-хвостов вида «13,200000000000003». */
+    /**
+     * Понятная длительность без нецелых минут через запятую (например, «34 мин» вместо «33,8 мин»
+     * и «1 ч 10 мин» вместо «1 ч 9,6 мин»):
+     *  - меньше минуты: «30 сек», «45 сек»;
+     *  - до 5 минут с секундами (планка/статика): «1 мин 30 сек»;
+     *  - ровные минуты и всё от 5 минут: целые минуты («34 мин»);
+     *  - от 60 минут: часы и целые минуты («1 ч», «1 ч 10 мин»).
+     */
     fun minutes(minutes: Float): String {
-        val totalTenths = (minutes * 10).roundToInt()
-        if (totalTenths <= 0) return "0 мин"
-        val hours = totalTenths / 600
-        val restTenths = totalTenths % 600
-        val builder = StringBuilder()
-        if (hours > 0) builder.append(hours).append(" ч")
-        if (restTenths > 0) {
-            if (hours > 0) builder.append(' ')
-            val wholeMinutes = restTenths / 10
-            val tenths = restTenths % 10
-            val restText = if (tenths == 0) wholeMinutes.toString() else "$wholeMinutes,$tenths"
-            builder.append(restText).append(" мин")
+        val totalSec = (minutes * 60).roundToInt()
+        if (totalSec <= 0) return "0 мин"
+        if (totalSec < 60) return "$totalSec сек"
+        if (totalSec < 300 && totalSec % 60 != 0) {
+            val m = totalSec / 60
+            val s = totalSec % 60
+            return "$m мин $s сек"
         }
-        return builder.toString()
+        val totalMins = (totalSec + 30) / 60
+        val hours = totalMins / 60
+        val restMins = totalMins % 60
+        return when {
+            hours == 0 -> "$totalMins мин"
+            restMins == 0 -> "$hours ч"
+            else -> "$hours ч $restMins мин"
+        }
     }
 
     /** Отсчёт таймера: «01:23». */
