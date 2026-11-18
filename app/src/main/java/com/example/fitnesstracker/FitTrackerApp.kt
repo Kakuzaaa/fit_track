@@ -9,6 +9,7 @@ import com.example.fitnesstracker.data.repository.WorkoutRepositoryImpl
 import com.example.fitnesstracker.domain.repository.ExerciseRepository
 import com.example.fitnesstracker.domain.repository.SettingsRepository
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
+import com.example.fitnesstracker.util.AppUpdateManager
 
 /**
  * Класс приложения: создаёт общий DI-контейнер.
@@ -31,4 +32,6 @@ class AppContainer(context: Context) {
     val workoutRepository: WorkoutRepository = WorkoutRepositoryImpl(database.workoutLogDao())
 
     val settingsRepository: SettingsRepository = SettingsRepositoryImpl(context)
+
+    val appUpdateManager: AppUpdateManager = AppUpdateManager(context.applicationContext)
 }

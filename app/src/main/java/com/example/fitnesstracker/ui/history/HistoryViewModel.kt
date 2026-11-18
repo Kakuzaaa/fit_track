@@ -64,7 +64,7 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
 
     init {
         viewModelScope.launch {
-            _bestStats.value = workoutRepository.getBestStats().associateBy { it.exerciseId }
+            refreshBestStats()
         }
     }
 
@@ -90,6 +90,42 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
 
     fun selectDay(epochDay: Long) {
         _selectedDay.value = epochDay
+    }
+
+    fun delete(log: WorkoutLog) {
+        viewModelScope.launch {
+            workoutRepository.delete(log)
+            refreshBestStats()
+        }
+    }
+
+    fun restore(log: WorkoutLog) {
+        viewModelScope.launch {
+            workoutRepository.insert(log)
+            refreshBestStats()
+        }
+    }
+
+    fun repeat(log: WorkoutLog) {
+        viewModelScope.launch {
+            val nowEpochDay = LocalDate.now().toEpochDay()
+            val timestamp = if (log.dateEpochDay == nowEpochDay) {
+                System.currentTimeMillis()
+            } else {
+                log.timestamp + 1_000L
+            }
+            val copy = log.copy(
+                id = 0L,
+                dateEpochDay = log.dateEpochDay,
+                timestamp = timestamp
+            )
+            workoutRepository.insert(copy)
+            refreshBestStats()
+        }
+    }
+
+    private suspend fun refreshBestStats() {
+        _bestStats.value = workoutRepository.getBestStats().associateBy { it.exerciseId }
     }
 
     /** Эффективная длительность: указанная или рассчитанная из расстояния и скорости. */

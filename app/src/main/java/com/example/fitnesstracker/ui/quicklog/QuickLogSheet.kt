@@ -70,6 +70,7 @@ import androidx.compose.foundation.combinedClickable
 import com.example.fitnesstracker.ui.components.categoryIcon
 import com.example.fitnesstracker.util.AthleteStandards
 import com.example.fitnesstracker.util.Formatters
+import java.time.LocalDate
 import kotlin.math.roundToInt
 
 /**
@@ -127,12 +128,22 @@ private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogVie
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "Записать упражнение",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Записать упражнение",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            val targetDay = state.targetDateEpochDay
+            if (targetDay != null && targetDay != LocalDate.now().toEpochDay()) {
+                Text(
+                    text = "Запись на: ${Formatters.dayTitle(targetDay)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
         IconButton(onClick = { viewModel.showCreateDialog() }) {
             Icon(imageVector = Icons.Filled.Add, contentDescription = "Своё упражнение")
         }
@@ -400,11 +411,23 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
             }
             Column(modifier = Modifier.weight(1f)) {
                 if (state.editingLog != null) {
+                    val dateStr = Formatters.dayTitle(state.editingLog.dateEpochDay)
                     Text(
-                        text = "Редактирование записи",
+                        text = "Редактирование записи ($dateStr)",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Medium
                     )
+                } else {
+                    val targetDay = state.targetDateEpochDay
+                    if (targetDay != null && targetDay != LocalDate.now().toEpochDay()) {
+                        Text(
+                            text = "Запись на: ${Formatters.dayTitle(targetDay)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
                 Text(
                     text = exercise.name,

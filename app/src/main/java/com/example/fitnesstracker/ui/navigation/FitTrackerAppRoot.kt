@@ -107,7 +107,7 @@ fun FitTrackerAppRoot() {
                 TodayScreen(snackbarHostState = snackbarHostState)
             }
             composable("history") {
-                HistoryScreen()
+                HistoryScreen(snackbarHostState = snackbarHostState)
             }
             composable("profile") {
                 ProfileScreen(snackbarHostState = snackbarHostState)

@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 
 /**
  * Событие успешного сохранения: новая запись или редактирование существующей.
@@ -49,6 +51,8 @@ data class QuickLogUiState(
     val showCreateDialog: Boolean = false,
     /** Запись в режиме редактирования (null — обычное добавление). */
     val editingLog: WorkoutLog? = null,
+    /** Целевой день добавления записи (null — сегодня). */
+    val targetDateEpochDay: Long? = null,
     /** Своё упражнение, открытое long-press'ом для правки/удаления. */
     val editingExercise: Exercise? = null,
     val showEditExerciseDialog: Boolean = false
@@ -129,6 +133,7 @@ class QuickLogViewModel(
                     it.copy(
                         selected = exercise,
                         editingLog = log,
+                        targetDateEpochDay = log.dateEpochDay,
                         reps = log.reps ?: 10,
                         weightKg = log.weightKg ?: 8f,
                         lastUsedWeightKg = log.weightKg,
@@ -148,8 +153,7 @@ class QuickLogViewModel(
     }
 
     /**
-     * Сброс перед открытием шита для НОВОЙ записи: гасит зависший режим
-     * редактирования и диалог создания, оставшиеся после отмены прошлого сеанса.
+     * Сброс перед открытием шита для НОВОЙ записи на сегодня.
      */
     fun prepareForNewEntry() {
         _state.update {
@@ -158,12 +162,66 @@ class QuickLogViewModel(
                     it.copy(
                         selected = null,
                         editingLog = null,
+                        targetDateEpochDay = null,
                         showCreateDialog = false,
                         showEditExerciseDialog = false,
                         editingExercise = null
                     )
                 )
             )
+        }
+    }
+
+    /**
+     * Открытие для добавления записи в конкретный прошлый день (из экрана истории).
+     */
+    fun openForDate(dateEpochDay: Long) {
+        _state.update {
+            recalculate(
+                applyFilters(
+                    it.copy(
+                        selected = null,
+                        editingLog = null,
+                        targetDateEpochDay = dateEpochDay,
+                        showCreateDialog = false,
+                        showEditExerciseDialog = false,
+                        editingExercise = null
+                    )
+                )
+            )
+        }
+    }
+
+    /**
+     * Открытие для добавления ещё одного подхода конкретного упражнения в выбранный день.
+     */
+    fun openForExerciseAndDate(exerciseId: Long, dateEpochDay: Long) {
+        viewModelScope.launch {
+            val exercise = exerciseRepository.getExercise(exerciseId) ?: return@launch
+            val lastWeight = if (exercise.trackingType == TrackingType.REPS_WEIGHT) {
+                workoutRepository.getLastUsedWeight(exercise.id)
+            } else {
+                null
+            }
+            _state.update {
+                recalculate(
+                    it.copy(
+                        selected = exercise,
+                        editingLog = null,
+                        targetDateEpochDay = dateEpochDay,
+                        reps = 10,
+                        weightKg = lastWeight ?: 8f,
+                        lastUsedWeightKg = lastWeight,
+                        durationMinutes = if (exercise.trackingType == TrackingType.DURATION) 1f else 30f,
+                        distanceKm = defaultDistanceFor(exercise),
+                        cardioDurationMinutes = null,
+                        speedKmh = defaultSpeedFor(exercise),
+                        showCreateDialog = false,
+                        showEditExerciseDialog = false,
+                        editingExercise = null
+                    )
+                )
+            }
         }
     }
 
@@ -277,13 +335,22 @@ class QuickLogViewModel(
         val kcal = current.previewKcal
         if (kcal <= 0) return
         val original = current.editingLog
+        val targetDay = original?.dateEpochDay ?: current.targetDateEpochDay ?: LocalDate.now().toEpochDay()
+        val timestamp = when {
+            original != null -> original.timestamp
+            current.targetDateEpochDay != null -> {
+                val targetDate = LocalDate.ofEpochDay(current.targetDateEpochDay)
+                targetDate.atTime(LocalTime.now()).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
+            else -> System.currentTimeMillis()
+        }
         viewModelScope.launch {
             val log = WorkoutLog(
                 id = original?.id ?: 0L,
                 exerciseId = exercise.id,
                 exerciseNameSnapshot = exercise.displayName,
-                dateEpochDay = original?.dateEpochDay ?: LocalDate.now().toEpochDay(),
-                timestamp = original?.timestamp ?: System.currentTimeMillis(),
+                dateEpochDay = targetDay,
+                timestamp = timestamp,
                 reps = if (exercise.trackingType == TrackingType.REPS ||
                     exercise.trackingType == TrackingType.REPS_WEIGHT
                 ) {

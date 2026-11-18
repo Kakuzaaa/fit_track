@@ -10,8 +10,11 @@ import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.ExerciseRepository
 import com.example.fitnesstracker.domain.repository.SettingsRepository
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
+import com.example.fitnesstracker.util.AppUpdateManager
 import com.example.fitnesstracker.util.CalorieCalculator
 import com.example.fitnesstracker.util.Formatters
+import com.example.fitnesstracker.util.ReleaseInfo
+import com.example.fitnesstracker.util.UpdateUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,11 +49,32 @@ data class ProfileUiState(
 class ProfileViewModel(
     private val settingsRepository: SettingsRepository,
     private val workoutRepository: WorkoutRepository,
-    private val exerciseRepository: ExerciseRepository
+    private val exerciseRepository: ExerciseRepository,
+    private val appUpdateManager: AppUpdateManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileUiState())
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
+
+    val updateState: StateFlow<UpdateUiState> = appUpdateManager.state
+
+    fun checkForUpdates() {
+        viewModelScope.launch {
+            appUpdateManager.checkForUpdates()
+        }
+    }
+
+    fun downloadUpdate(release: ReleaseInfo) {
+        viewModelScope.launch {
+            appUpdateManager.downloadUpdate(release)
+        }
+    }
+
+    fun installUpdate(apkFile: java.io.File): Boolean {
+        return appUpdateManager.installUpdate(apkFile)
+    }
+
+    fun getCurrentVersionName(): String = appUpdateManager.getCurrentVersionName()
 
     init {
         viewModelScope.launch {

@@ -21,22 +21,34 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,24 +62,37 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.TrackingType
+import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.EmptyState
 import com.example.fitnesstracker.ui.components.WeeklyBarChart
 import com.example.fitnesstracker.ui.components.workoutDetails
+import com.example.fitnesstracker.ui.quicklog.QuickLogSheet
+import com.example.fitnesstracker.ui.quicklog.QuickLogViewModel
 import com.example.fitnesstracker.util.AthleteLevel
 import com.example.fitnesstracker.util.AthleteStandards
 import com.example.fitnesstracker.util.CalorieCalculator
 import com.example.fitnesstracker.util.Formatters
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 /**
  * Экран «История»: горизонтальная лента дат с точками-индикаторами,
- * сводка выбранного дня и раскрывающийся детальный лог.
+ * сводка выбранного дня, раскрывающийся детальный лог с возможностью
+ * редактирования, повтора и удаления подходов, а также добавления
+ * новых записей за выбранный день.
  */
 @Composable
-fun HistoryScreen() {
+fun HistoryScreen(snackbarHostState: SnackbarHostState) {
     val container = LocalAppContainer.current
     val viewModel: HistoryViewModel = viewModel { HistoryViewModel(container.workoutRepository) }
+    val quickLogViewModel: QuickLogViewModel = viewModel {
+        QuickLogViewModel(
+            exerciseRepository = container.exerciseRepository,
+            workoutRepository = container.workoutRepository,
+            settingsRepository = container.settingsRepository
+        )
+    }
 
     val dayStats by viewModel.dayStats.collectAsStateWithLifecycle()
     val selectedDay by viewModel.selectedDay.collectAsStateWithLifecycle()
@@ -76,57 +101,128 @@ fun HistoryScreen() {
     val weekStats by viewModel.weekStats.collectAsStateWithLifecycle()
     val bestStats by viewModel.bestStats.collectAsStateWithLifecycle()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        DateStrip(
-            statsByDay = dayStats.associateBy { it.dateEpochDay },
-            selectedDay = selectedDay,
-            onSelect = viewModel::selectDay
-        )
+    val scope = rememberCoroutineScope()
+    var showQuickLog by remember { mutableStateOf(false) }
 
-        WeeklyChartCard(
-            week = weekStats,
-            selectedDate = LocalDate.ofEpochDay(selectedDay)
-        )
-
-        val totalKcal = dayLogs.sumOf { it.caloriesBurned }
-        val cardioMinutes = dayLogs.filter { it.speedKmh != null }
-            .sumOf { log ->
-                log.durationMinutes?.toDouble()
-                    ?: CalorieCalculator.minutesFromDistance(
-                        (log.distanceKm ?: 0f).toDouble(),
-                        (log.speedKmh ?: 0f).toDouble()
-                    )
-            }.toFloat()
-        DaySummaryCard(
-            title = Formatters.dayTitle(selectedDay),
-            totalKcal = totalKcal,
-            entries = dayLogs.size,
-            cardioMinutes = cardioMinutes
-        )
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (summaries.isEmpty()) {
-                item(key = "empty") {
-                    EmptyState(
-                        icon = Icons.Filled.History,
-                        title = "Нет записей за этот день",
-                        subtitle = "Запишите тренировку на экране «Сегодня»"
-                    )
-                }
-            } else {
-                items(summaries, key = { it.name }) { summary ->
-                    val bestLevel = bestStats[summary.entries.first().exerciseId]?.let {
-                        AthleteStandards.levelForStats(it.exerciseId, it.bestReps, it.bestSeconds)
-                    }
-                    ExpandableExerciseCard(summary = summary, bestLevel = bestLevel)
-                }
-            }
-            item(key = "bottom_space") { Spacer(modifier = Modifier.height(16.dp)) }
+    LaunchedEffect(Unit) {
+        quickLogViewModel.saved.collect { event ->
+            showQuickLog = false
+            val verb = if (event.isEdit) "Обновлено" else "Записано"
+            snackbarHostState.showSnackbar(
+                message = "$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
+            )
         }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            DateStrip(
+                statsByDay = dayStats.associateBy { it.dateEpochDay },
+                selectedDay = selectedDay,
+                onSelect = viewModel::selectDay
+            )
+
+            WeeklyChartCard(
+                week = weekStats,
+                selectedDate = LocalDate.ofEpochDay(selectedDay)
+            )
+
+            val totalKcal = dayLogs.sumOf { it.caloriesBurned }
+            val cardioMinutes = dayLogs.filter { it.speedKmh != null }
+                .sumOf { log ->
+                    log.durationMinutes?.toDouble()
+                        ?: CalorieCalculator.minutesFromDistance(
+                            (log.distanceKm ?: 0f).toDouble(),
+                            (log.speedKmh ?: 0f).toDouble()
+                        )
+                }.toFloat()
+            DaySummaryCard(
+                title = Formatters.dayTitle(selectedDay),
+                totalKcal = totalKcal,
+                entries = dayLogs.size,
+                cardioMinutes = cardioMinutes
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (summaries.isEmpty()) {
+                    item(key = "empty") {
+                        EmptyState(
+                            icon = Icons.Filled.History,
+                            title = "Нет записей за этот день",
+                            subtitle = "Нажмите «+ Записать в день», чтобы внести тренировку"
+                        )
+                    }
+                } else {
+                    items(summaries, key = { it.name }) { summary ->
+                        val bestLevel = bestStats[summary.entries.first().exerciseId]?.let {
+                            AthleteStandards.levelForStats(it.exerciseId, it.bestReps, it.bestSeconds)
+                        }
+                        ExpandableExerciseCard(
+                            summary = summary,
+                            bestLevel = bestLevel,
+                            onEdit = { log ->
+                                quickLogViewModel.startEditing(log)
+                                showQuickLog = true
+                            },
+                            onRepeat = { log ->
+                                viewModel.repeat(log)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                                    )
+                                }
+                            },
+                            onDelete = { log ->
+                                viewModel.delete(log)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Удалено: ${log.exerciseNameSnapshot}",
+                                        actionLabel = "Отменить",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.restore(log)
+                                    }
+                                }
+                            },
+                            onAddSet = { exerciseId ->
+                                quickLogViewModel.openForExerciseAndDate(exerciseId, selectedDay)
+                                showQuickLog = true
+                            }
+                        )
+                    }
+                }
+                item(key = "bottom_space") { Spacer(modifier = Modifier.height(84.dp)) }
+            }
+        }
+
+        ExtendedFloatingActionButton(
+            onClick = {
+                quickLogViewModel.openForDate(selectedDay)
+                showQuickLog = true
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            text = {
+                val isToday = selectedDay == LocalDate.now().toEpochDay()
+                Text(if (isToday) "Записать" else "Записать в день")
+            }
+        )
+    }
+
+    if (showQuickLog) {
+        QuickLogSheet(
+            viewModel = quickLogViewModel,
+            onDismiss = { showQuickLog = false }
+        )
     }
 }
 
@@ -328,7 +424,14 @@ private fun trackingIcon(trackingType: TrackingType): ImageVector = when (tracki
 }
 
 @Composable
-private fun ExpandableExerciseCard(summary: DayExerciseSummary, bestLevel: AthleteLevel?) {
+private fun ExpandableExerciseCard(
+    summary: DayExerciseSummary,
+    bestLevel: AthleteLevel?,
+    onEdit: (WorkoutLog) -> Unit,
+    onRepeat: (WorkoutLog) -> Unit,
+    onDelete: (WorkoutLog) -> Unit,
+    onAddSet: (Long) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -378,7 +481,7 @@ private fun ExpandableExerciseCard(summary: DayExerciseSummary, bestLevel: Athle
             AnimatedVisibility(visible = expanded) {
                 Column(
                     modifier = Modifier.padding(top = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (bestLevel != null) {
                         Text(
@@ -388,18 +491,75 @@ private fun ExpandableExerciseCard(summary: DayExerciseSummary, bestLevel: Athle
                         )
                     }
                     summary.entries.forEach { entry ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                                .padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
                                 text = Formatters.time(entry.timestamp),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.width(52.dp)
+                                modifier = Modifier.width(44.dp)
                             )
                             Text(
                                 text = workoutDetails(entry),
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
                             )
+                            IconButton(
+                                onClick = { onEdit(entry) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Edit,
+                                    contentDescription = "Редактировать",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { onRepeat(entry) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Repeat,
+                                    contentDescription = "Повторить",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = { onDelete(entry) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.DeleteOutline,
+                                    contentDescription = "Удалить",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
+                    }
+
+                    OutlinedButton(
+                        onClick = { onAddSet(summary.entries.first().exerciseId) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Добавить подход")
                     }
                 }
             }

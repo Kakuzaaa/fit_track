@@ -10,12 +10,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.AlertDialog
@@ -23,13 +28,17 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +49,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -49,6 +59,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnesstracker.domain.model.ThemeMode
 import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.shareText
+import com.example.fitnesstracker.util.Formatters
+import com.example.fitnesstracker.util.ReleaseInfo
+import com.example.fitnesstracker.util.UpdateUiState
 import kotlinx.coroutines.launch
 
 /**
@@ -61,10 +74,12 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
         ProfileViewModel(
             settingsRepository = container.settingsRepository,
             workoutRepository = container.workoutRepository,
-            exerciseRepository = container.exerciseRepository
+            exerciseRepository = container.exerciseRepository,
+            appUpdateManager = container.appUpdateManager
         )
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showClearDialog by remember { mutableStateOf(false) }
@@ -328,6 +343,20 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
             }
         }
 
+        // ── Обновление приложения ──
+        AppUpdateCard(
+            updateState = updateState,
+            currentVersion = viewModel.getCurrentVersionName(),
+            onCheck = { viewModel.checkForUpdates() },
+            onDownload = { release -> viewModel.downloadUpdate(release) },
+            onInstall = { apkFile ->
+                val launched = viewModel.installUpdate(apkFile)
+                if (!launched) {
+                    showSnackbar("Разрешите установку приложений в настройках устройства")
+                }
+            }
+        )
+
         Icon(
             imageVector = Icons.Outlined.PersonOutline,
             contentDescription = null,
@@ -375,5 +404,214 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                 }
             }
         )
+    }
+}
+
+// ─────────────────────────── Карточка обновления приложения ───────────────────────────
+
+@Composable
+private fun AppUpdateCard(
+    updateState: UpdateUiState,
+    currentVersion: String,
+    onCheck: () -> Unit,
+    onDownload: (ReleaseInfo) -> Unit,
+    onInstall: (java.io.File) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Обновление приложения",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Установлена: v$currentVersion",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (updateState is UpdateUiState.Idle || updateState is UpdateUiState.UpToDate || updateState is UpdateUiState.Error) {
+                    FilledTonalButton(
+                        onClick = onCheck,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Проверить")
+                    }
+                }
+            }
+
+            when (updateState) {
+                is UpdateUiState.Idle -> {
+                    Text(
+                        text = "Проверьте наличие новых версий на GitHub. Обновление скачивается и устанавливается прямо внутри приложения.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                is UpdateUiState.Checking -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text(
+                            text = "Проверка новых версий на GitHub...",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                is UpdateUiState.UpToDate -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "У вас установлена последняя версия!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                is UpdateUiState.Available -> {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Доступно: ${updateState.release.tagName}",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (updateState.release.apkSize > 0) {
+                                    val sizeMb = updateState.release.apkSize / (1024f * 1024f)
+                                    Text(
+                                        text = "${Formatters.number(sizeMb)} МБ",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            if (updateState.release.changelog.isNotBlank()) {
+                                Text(
+                                    text = updateState.release.changelog.take(250) +
+                                        if (updateState.release.changelog.length > 250) "..." else "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Button(
+                                onClick = { onDownload(updateState.release) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Download,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Скачать обновление")
+                            }
+                        }
+                    }
+                }
+                is UpdateUiState.Downloading -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Загрузка обновления...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "${updateState.progressPercent}% (${Formatters.number(updateState.downloadedMb)} / ${Formatters.number(updateState.totalMb)} МБ)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { updateState.progressPercent / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                        )
+                    }
+                }
+                is UpdateUiState.ReadyToInstall -> {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Версия ${updateState.release.tagName} скачана и готова к установке!",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Button(
+                                onClick = { onInstall(updateState.apkFile) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.SystemUpdate,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Установить сейчас")
+                            }
+                        }
+                    }
+                }
+                is UpdateUiState.Error -> {
+                    Text(
+                        text = updateState.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
     }
 }
