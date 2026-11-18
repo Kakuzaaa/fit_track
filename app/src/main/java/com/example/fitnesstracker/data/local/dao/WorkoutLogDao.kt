@@ -24,7 +24,8 @@ data class DayStatsRow(
 data class BestStatsRow(
     val exerciseId: Long,
     val bestReps: Int,
-    val bestSeconds: Int
+    val bestSeconds: Int,
+    val bestWeightKg: Float? = null
 )
 
 @Dao
@@ -32,6 +33,12 @@ interface WorkoutLogDao {
 
     @Query("SELECT * FROM workout_logs WHERE dateEpochDay = :dateEpochDay ORDER BY timestamp DESC")
     fun observeLogsForDay(dateEpochDay: Long): Flow<List<WorkoutLogEntity>>
+
+    @Query("SELECT * FROM workout_logs WHERE exerciseId = :exerciseId ORDER BY timestamp ASC")
+    fun observeLogsForExercise(exerciseId: Long): Flow<List<WorkoutLogEntity>>
+
+    @Query("SELECT * FROM workout_logs WHERE exerciseId = :exerciseId ORDER BY timestamp ASC")
+    suspend fun getLogsForExercise(exerciseId: Long): List<WorkoutLogEntity>
 
     @Query(
         "SELECT dateEpochDay, SUM(caloriesBurned) AS totalCalories, " +
@@ -42,7 +49,8 @@ interface WorkoutLogDao {
 
     @Query(
         "SELECT exerciseId, MAX(COALESCE(reps, 0)) AS bestReps, " +
-            "CAST(MAX(COALESCE(durationMinutes, 0)) * 60 AS INTEGER) AS bestSeconds " +
+            "CAST(MAX(COALESCE(durationMinutes, 0)) * 60 AS INTEGER) AS bestSeconds, " +
+            "MAX(weightKg) AS bestWeightKg " +
             "FROM workout_logs GROUP BY exerciseId"
     )
     suspend fun getBestStats(): List<BestStatsRow>

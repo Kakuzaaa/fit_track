@@ -3,14 +3,19 @@ package com.example.fitnesstracker.domain.repository
 import com.example.fitnesstracker.domain.model.BestExerciseStats
 import com.example.fitnesstracker.domain.model.DayStats
 import com.example.fitnesstracker.domain.model.WorkoutLog
+import com.example.fitnesstracker.domain.model.WorkoutTemplate
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Доступ к журналу тренировок.
+ * Доступ к журналу тренировок и шаблонам программ.
  */
 interface WorkoutRepository {
 
     fun observeLogsForDay(dateEpochDay: Long): Flow<List<WorkoutLog>>
+
+    fun observeLogsForExercise(exerciseId: Long): Flow<List<WorkoutLog>>
+
+    suspend fun getLogsForExercise(exerciseId: Long): List<WorkoutLog>
 
     fun observeDayStats(): Flow<List<DayStats>>
 
@@ -29,4 +34,13 @@ interface WorkoutRepository {
     suspend fun delete(log: WorkoutLog)
 
     suspend fun clearAllLogs()
+
+    // ── Шаблоны тренировок ──────────────────────────────────────
+    fun observeTemplates(): Flow<List<WorkoutTemplate>>
+
+    suspend fun getTemplate(id: Long): WorkoutTemplate?
+
+    suspend fun saveTemplate(template: WorkoutTemplate): Long
+
+    suspend fun deleteTemplate(id: Long)
 }

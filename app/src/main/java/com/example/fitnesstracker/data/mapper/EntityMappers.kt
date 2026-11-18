@@ -67,5 +67,6 @@ fun DayStatsRow.toDomain(): DayStats = DayStats(
 fun BestStatsRow.toDomain(): BestExerciseStats = BestExerciseStats(
     exerciseId = exerciseId,
     bestReps = bestReps,
-    bestSeconds = bestSeconds
+    bestSeconds = bestSeconds,
+    bestWeightKg = bestWeightKg
 )

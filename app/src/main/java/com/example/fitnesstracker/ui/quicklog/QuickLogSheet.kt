@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -64,6 +65,7 @@ import com.example.fitnesstracker.domain.model.ExerciseCategory
 import com.example.fitnesstracker.domain.model.ExercisePackage
 import com.example.fitnesstracker.domain.model.ExerciseProgressions
 import com.example.fitnesstracker.domain.model.TrackingType
+import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.data.guides.ExerciseGuides
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -123,6 +125,7 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onDismiss: () -> Unit) {
 @Composable
 private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogViewModel) {
     var techniqueExercise by remember { mutableStateOf<Exercise?>(null) }
+    var progressExercise by remember { mutableStateOf<Exercise?>(null) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -191,7 +194,8 @@ private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogVie
                 exercise = exercise,
                 onClick = { viewModel.selectExercise(exercise) },
                 onLongClick = { viewModel.onExerciseLongPress(exercise) },
-                onShowTechnique = { techniqueExercise = exercise }
+                onShowTechnique = { techniqueExercise = exercise },
+                onShowProgress = { progressExercise = exercise }
             )
         }
         item(key = "create_custom") {
@@ -240,6 +244,15 @@ private fun ExercisePickerContent(state: QuickLogUiState, viewModel: QuickLogVie
             )
         }
     }
+
+    progressExercise?.let { ex ->
+        val logs: List<WorkoutLog> by viewModel.observeLogsForExercise(ex.id).collectAsStateWithLifecycle(initialValue = emptyList())
+        ExerciseProgressSheet(
+            exercise = ex,
+            logs = logs,
+            onDismiss = { progressExercise = null }
+        )
+    }
 }
 
 @Composable
@@ -279,7 +292,8 @@ private fun ExerciseListItem(
     exercise: Exercise,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onShowTechnique: (() -> Unit)? = null
+    onShowTechnique: (() -> Unit)? = null,
+    onShowProgress: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -322,7 +336,27 @@ private fun ExerciseListItem(
                 overflow = TextOverflow.Ellipsis
             )
         }
+        if (onShowProgress != null) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onShowProgress)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = "Прогресс и 1RM",
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
         if (onShowTechnique != null && ExerciseGuides.hasGuide(exercise.id)) {
+            Spacer(modifier = Modifier.width(6.dp))
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -397,6 +431,7 @@ private fun AddCustomExerciseItem(onClick: () -> Unit) {
 @Composable
 private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, viewModel: QuickLogViewModel) {
     var showTechnique by remember { mutableStateOf(false) }
+    var showProgress by remember { mutableStateOf(false) }
 
     Column {
         Row(
@@ -443,6 +478,13 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+            IconButton(onClick = { showProgress = true }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                    contentDescription = "Прогресс и 1RM",
+                    tint = MaterialTheme.colorScheme.secondary
+                )
             }
             if (ExerciseGuides.hasGuide(exercise.id)) {
                 IconButton(onClick = { showTechnique = true }) {
@@ -586,6 +628,16 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
                 onDismiss = { showTechnique = false }
             )
         }
+    }
+
+    if (showProgress) {
+        val logs: List<WorkoutLog> by viewModel.observeLogsForExercise(exercise.id)
+            .collectAsStateWithLifecycle(initialValue = emptyList())
+        ExerciseProgressSheet(
+            exercise = exercise,
+            logs = logs,
+            onDismiss = { showProgress = false }
+        )
     }
 }
 

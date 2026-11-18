@@ -59,7 +59,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Трицепс", "Грудь (внутренняя)"),
             secondaryMuscles = listOf("Передняя дельта", "Кор"),
-            animationAsset = "pushups.json"
+            animationAsset = "pushups_diamond.json"
         ),
         4L to ExerciseGuide(
             exerciseId = 4L,
@@ -247,7 +247,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Плечевая мышца (брахиалис)", "Плечелучевая мышца"),
             secondaryMuscles = listOf("Бицепс", "Мышцы кисти и предплечья"),
-            animationAsset = "bicep_curl.json"
+            animationAsset = "hammer_curl.json"
         ),
         15L to ExerciseGuide(
             exerciseId = 15L,
@@ -311,7 +311,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Широчайшие мышцы спины"),
             secondaryMuscles = listOf("Ромбовидные мышцы", "Задняя дельта", "Бицепс"),
-            animationAsset = "deadlift.json"
+            animationAsset = "dumbbell_row.json"
         ),
         19L to ExerciseGuide(
             exerciseId = 19L,
@@ -328,7 +328,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Средняя дельтовидная мышца"),
             secondaryMuscles = listOf("Передняя дельта", "Трапециевидная мышца"),
-            animationAsset = "bench_press.json"
+            animationAsset = "lateral_raises.json"
         ),
         20L to ExerciseGuide(
             exerciseId = 20L,
@@ -380,7 +380,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Нижняя часть пресса", "Прямая мышца живота"),
             secondaryMuscles = listOf("Подвздошно-поясничная мышца", "Хват"),
-            animationAsset = "crunches.json"
+            animationAsset = "leg_raises.json"
         ),
         23L to ExerciseGuide(
             exerciseId = 23L,
@@ -396,7 +396,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Косые мышцы живота", "Прямая мышца живота"),
             secondaryMuscles = listOf("Мышцы кора", "Сгибатели бедра"),
-            animationAsset = "crunches.json"
+            animationAsset = "bicycle.json"
         ),
         24L to ExerciseGuide(
             exerciseId = 24L,
@@ -468,7 +468,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Широчайшие мышцы", "Ромбовидные"),
             secondaryMuscles = listOf("Бицепс", "Задняя дельта", "Кор"),
-            animationAsset = "pullups.json"
+            animationAsset = "australian_pullups.json"
         ),
         28L to ExerciseGuide(
             exerciseId = 28L,
@@ -534,7 +534,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Широчайшие мышцы", "Грудь", "Трицепс"),
             secondaryMuscles = listOf("Дельты", "Кор", "Предплечья"),
-            animationAsset = "pullups.json"
+            animationAsset = "muscle_up.json"
         ),
         32L to ExerciseGuide(
             exerciseId = 32L,
@@ -688,7 +688,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Квадрицепс", "Ягодицы"),
             secondaryMuscles = listOf("Мышцы-стабилизаторы", "Голеностоп", "Кор"),
-            animationAsset = "squats.json"
+            animationAsset = "pistol_squat.json"
         ),
 
         // ── 42..51: Пакет «Здоровая спина и мобильность» ──────────────────
@@ -706,7 +706,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Мышцы вдоль позвоночника", "Разгибатели спины"),
             secondaryMuscles = listOf("Пресс", "Шейный отдел"),
-            animationAsset = "back_extension.json"
+            animationAsset = "cat_cow.json"
         ),
         43L to ExerciseGuide(
             exerciseId = 43L,
@@ -724,7 +724,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Глубокие мышцы кора", "Ягодичные мышцы"),
             secondaryMuscles = listOf("Разгибатели спины", "Задняя дельта", "Бицепс бедра"),
-            animationAsset = "back_extension.json"
+            animationAsset = "bird_dog.json"
         ),
         44L to ExerciseGuide(
             exerciseId = 44L,
@@ -758,7 +758,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Разгибатели спины", "Ягодицы"),
             secondaryMuscles = listOf("Задние дельты", "Бицепс бедра"),
-            animationAsset = "back_extension.json"
+            animationAsset = "superman.json"
         ),
         46L to ExerciseGuide(
             exerciseId = 46L,
@@ -789,7 +789,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Косые мышцы живота"),
             secondaryMuscles = listOf("Средняя ягодичная мышца", "Плечевой пояс"),
-            animationAsset = "plank.json"
+            animationAsset = "side_plank.json"
         ),
         48L to ExerciseGuide(
             exerciseId = 48L,
@@ -821,7 +821,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Глубокая поперечная мышца живота", "Прямая мышца живота"),
             secondaryMuscles = listOf("Сгибатели бедра", "Мышцы кора"),
-            animationAsset = "crunches.json"
+            animationAsset = "deadbug.json"
         ),
         50L to ExerciseGuide(
             exerciseId = 50L,
@@ -920,7 +920,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Передняя и средняя дельты"),
             secondaryMuscles = listOf("Трицепс", "Верх груди", "Кор"),
-            animationAsset = "bench_press.json"
+            animationAsset = "barbell_overhead_press.json"
         ),
         56L to ExerciseGuide(
             exerciseId = 56L,
@@ -937,7 +937,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Широчайшие мышцы", "Ромбовидные"),
             secondaryMuscles = listOf("Задняя дельта", "Бицепс", "Разгибатели спины"),
-            animationAsset = "deadlift.json"
+            animationAsset = "barbell_row.json"
         ),
         57L to ExerciseGuide(
             exerciseId = 57L,
@@ -953,7 +953,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Бицепс бедра", "Ягодицы"),
             secondaryMuscles = listOf("Разгибатели спины", "Предплечья"),
-            animationAsset = "deadlift.json"
+            animationAsset = "romanian_deadlift.json"
         ),
         58L to ExerciseGuide(
             exerciseId = 58L,
@@ -1002,7 +1002,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Верхняя порция трапеции"),
             secondaryMuscles = listOf("Мышцы шеи", "Мышцы предплечья (хват)"),
-            animationAsset = "deadlift.json"
+            animationAsset = "shrugs.json"
         ),
         61L to ExerciseGuide(
             exerciseId = 61L,
@@ -1017,7 +1017,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Средняя дельта", "Трапеции"),
             secondaryMuscles = listOf("Бицепс", "Предплечья"),
-            animationAsset = "deadlift.json"
+            animationAsset = "upright_row.json"
         ),
         62L to ExerciseGuide(
             exerciseId = 62L,
@@ -1050,7 +1050,7 @@ object ExerciseGuides {
             ),
             primaryMuscles = listOf("Разгибатели спины", "Ягодицы"),
             secondaryMuscles = listOf("Бицепс бедра"),
-            animationAsset = "deadlift.json"
+            animationAsset = "good_morning.json"
         )
     )
 

@@ -29,7 +29,11 @@ class AppContainer(context: Context) {
 
     val exerciseRepository: ExerciseRepository = ExerciseRepositoryImpl(database.exerciseDao())
 
-    val workoutRepository: WorkoutRepository = WorkoutRepositoryImpl(database.workoutLogDao())
+    val workoutRepository: WorkoutRepository = WorkoutRepositoryImpl(
+        dao = database.workoutLogDao(),
+        templateDao = database.workoutTemplateDao(),
+        exerciseDao = database.exerciseDao()
+    )
 
     val settingsRepository: SettingsRepository = SettingsRepositoryImpl(context)
 

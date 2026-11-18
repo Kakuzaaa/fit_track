@@ -11,6 +11,9 @@ import com.example.fitnesstracker.domain.repository.ExerciseRepository
 import com.example.fitnesstracker.domain.repository.SettingsRepository
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
 import com.example.fitnesstracker.util.CalorieCalculator
+import com.example.fitnesstracker.util.Formatters
+import com.example.fitnesstracker.util.OneRepMaxCalculator
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,9 +27,15 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 /**
- * Событие успешного сохранения: новая запись или редактирование существующей.
+ * Событие успешного сохранения: новая запись или редактирование существующей,
+ * с флагом установления личного рекорда (PR).
  */
-data class SavedEvent(val log: WorkoutLog, val isEdit: Boolean)
+data class SavedEvent(
+    val log: WorkoutLog,
+    val isEdit: Boolean,
+    val isPersonalRecord: Boolean = false,
+    val prDescription: String? = null
+)
 
 /**
  * Состояние BottomSheet быстрого добавления / редактирования подхода.
@@ -225,6 +234,38 @@ class QuickLogViewModel(
         }
     }
 
+    /**
+     * Открытие для записи упражнения из программы / шаблона тренировок с целевыми параметрами.
+     */
+    fun openForExerciseWithTargets(
+        exerciseId: Long,
+        targetReps: Int?,
+        targetWeightKg: Float?,
+        targetDurationMinutes: Float?
+    ) {
+        viewModelScope.launch {
+            val exercise = exerciseRepository.getExercise(exerciseId) ?: return@launch
+            _state.update {
+                recalculate(
+                    it.copy(
+                        selected = exercise,
+                        editingLog = null,
+                        targetDateEpochDay = null,
+                        reps = targetReps ?: 10,
+                        weightKg = targetWeightKg ?: 8f,
+                        durationMinutes = targetDurationMinutes ?: 1f,
+                        distanceKm = defaultDistanceFor(exercise),
+                        cardioDurationMinutes = null,
+                        speedKmh = defaultSpeedFor(exercise),
+                        showCreateDialog = false,
+                        showEditExerciseDialog = false,
+                        editingExercise = null
+                    )
+                )
+            }
+        }
+    }
+
     fun setReps(reps: Int) {
         _state.update { recalculate(it.copy(reps = reps.coerceIn(0, 1000))) }
     }
@@ -329,6 +370,10 @@ class QuickLogViewModel(
         viewModelScope.launch { exerciseRepository.importExercisePackage(packageId) }
     }
 
+    /** Наблюдение за историей подходов конкретного упражнения для экрана прогресса. */
+    fun observeLogsForExercise(exerciseId: Long): Flow<List<WorkoutLog>> =
+        workoutRepository.observeLogsForExercise(exerciseId)
+
     fun save() {
         val current = _state.value
         val exercise = current.selected ?: return
@@ -372,12 +417,53 @@ class QuickLogViewModel(
                 },
                 caloriesBurned = kcal
             )
+            var isPr = false
+            var prDesc: String? = null
+
             if (original == null) {
+                val previousLogs = workoutRepository.getLogsForExercise(exercise.id)
+                if (previousLogs.isNotEmpty()) {
+                    val currentWeight = log.weightKg ?: 0f
+                    val currentReps = log.reps ?: 0
+                    val current1Rm = if (currentWeight > 0f && currentReps > 0) {
+                        OneRepMaxCalculator.calculate1RmEpley(currentWeight, currentReps)
+                    } else 0f
+
+                    val prevMaxWeight = previousLogs.mapNotNull { it.weightKg }.maxOrNull() ?: 0f
+                    val prevMaxReps = previousLogs.mapNotNull { it.reps }.maxOrNull() ?: 0
+                    val prevMax1Rm = previousLogs.mapNotNull {
+                        val w = it.weightKg ?: 0f
+                        val r = it.reps ?: 0
+                        if (w > 0f && r > 0) OneRepMaxCalculator.calculate1RmEpley(w, r) else null
+                    }.maxOrNull() ?: 0f
+
+                    when {
+                        current1Rm > 0f && prevMax1Rm > 0f && current1Rm > prevMax1Rm -> {
+                            isPr = true
+                            prDesc = "1RM: ${Formatters.number(current1Rm)} кг (ранее ${Formatters.number(prevMax1Rm)} кг)"
+                        }
+                        currentWeight > 0f && prevMaxWeight > 0f && currentWeight > prevMaxWeight -> {
+                            isPr = true
+                            prDesc = "Вес: ${Formatters.number(currentWeight)} кг (ранее ${Formatters.number(prevMaxWeight)} кг)"
+                        }
+                        currentReps > 0 && prevMaxReps > 0 && currentReps > prevMaxReps && (currentWeight >= prevMaxWeight) -> {
+                            isPr = true
+                            prDesc = "Повторения: $currentReps раз (ранее $prevMaxReps)"
+                        }
+                    }
+                }
                 workoutRepository.insert(log)
             } else {
                 workoutRepository.update(log)
             }
-            _saved.tryEmit(SavedEvent(log, isEdit = original != null))
+            _saved.tryEmit(
+                SavedEvent(
+                    log = log,
+                    isEdit = original != null,
+                    isPersonalRecord = isPr,
+                    prDescription = prDesc
+                )
+            )
             // Сбрасываем выбор, но оставляем поиск и фильтр — удобно записать следующий подход.
             _state.update {
                 recalculate(applyFilters(it.copy(selected = null, query = "", editingLog = null)))

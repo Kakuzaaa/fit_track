@@ -20,17 +20,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -64,6 +68,7 @@ import com.example.fitnesstracker.ui.components.WorkoutLogRow
 import com.example.fitnesstracker.ui.components.vibrateOnce
 import com.example.fitnesstracker.ui.quicklog.QuickLogSheet
 import com.example.fitnesstracker.ui.quicklog.QuickLogViewModel
+import com.example.fitnesstracker.ui.templates.WorkoutTemplatesSheet
 import com.example.fitnesstracker.util.Formatters
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -99,6 +104,7 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showQuickLog by remember { mutableStateOf(false) }
+    var showTemplates by remember { mutableStateOf(false) }
 
     // Таймер отдыха: запускается после сохранения нового подхода или «+1».
     var restEndsAt by remember { mutableStateOf(0L) }
@@ -120,8 +126,9 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
                 startRestTimer()
             }
             val verb = if (event.isEdit) "Обновлено" else "Записано"
+            val prPrefix = if (event.isPersonalRecord) "🏆 Новый рекорд! " + (event.prDescription?.let { "($it) · " } ?: "") else ""
             snackbarHostState.showSnackbar(
-                message = "$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
+                message = "$prPrefix$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
             )
         }
     }
@@ -164,14 +171,25 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
                 summary = summary,
                 dailyGoalKcal = dailyGoalKcal,
                 streak = streak,
+                onOpenTemplates = { showTemplates = true },
                 modifier = Modifier.padding(16.dp)
             )
             if (logs.isEmpty()) {
                 EmptyState(
                     icon = Icons.Filled.Insights,
                     title = "Сегодня ещё нет тренировок",
-                    subtitle = "Нажмите «Записать упражнение» и добавьте первый подход"
+                    subtitle = "Нажмите «Записать упражнение» или выберите готовую программу тренировок"
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { showTemplates = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(imageVector = Icons.Filled.FitnessCenter, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Выбрать программу")
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -260,6 +278,42 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
                         color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilledTonalButton(
+                            onClick = {
+                                restEndsAt = (restEndsAt - 15_000L).coerceAtLeast(System.currentTimeMillis())
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("-15 с", style = MaterialTheme.typography.labelMedium)
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                restEndsAt += 30_000L
+                                restTotalMs += 30_000L
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("+30 с", style = MaterialTheme.typography.labelMedium)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                restEndsAt = 0L
+                                nowMs = 0L
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("Пропустить", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
             }
         }
@@ -281,6 +335,24 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
     if (showQuickLog) {
         QuickLogSheet(viewModel = quickLogViewModel, onDismiss = { showQuickLog = false })
     }
+
+    if (showTemplates) {
+        WorkoutTemplatesSheet(
+            workoutRepository = container.workoutRepository,
+            exerciseRepository = container.exerciseRepository,
+            onStartExercise = { exerciseId, reps, weightKg, durationMinutes ->
+                quickLogViewModel.openForExerciseWithTargets(
+                    exerciseId = exerciseId,
+                    targetReps = reps,
+                    targetWeightKg = weightKg,
+                    targetDurationMinutes = durationMinutes
+                )
+                showTemplates = false
+                showQuickLog = true
+            },
+            onDismiss = { showTemplates = false }
+        )
+    }
 }
 
 /**
@@ -292,6 +364,7 @@ private fun TodaySummaryCard(
     summary: TodaySummary,
     dailyGoalKcal: Int,
     streak: Int,
+    onOpenTemplates: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -300,24 +373,48 @@ private fun TodaySummaryCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = "Сожжено сегодня",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
-            )
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = "${summary.totalKcal}",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Text(
-                    text = " ккал",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Сожжено сегодня",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "${summary.totalKcal}",
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = " ккал",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                    }
+                }
+                FilledTonalButton(
+                    onClick = onOpenTemplates,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.FitnessCenter,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Программы", style = MaterialTheme.typography.labelMedium)
+                }
             }
             Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

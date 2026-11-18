@@ -108,8 +108,9 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
         quickLogViewModel.saved.collect { event ->
             showQuickLog = false
             val verb = if (event.isEdit) "Обновлено" else "Записано"
+            val prPrefix = if (event.isPersonalRecord) "🏆 Новый рекорд! " + (event.prDescription?.let { "($it) · " } ?: "") else ""
             snackbarHostState.showSnackbar(
-                message = "$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
+                message = "$prPrefix$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
             )
         }
     }

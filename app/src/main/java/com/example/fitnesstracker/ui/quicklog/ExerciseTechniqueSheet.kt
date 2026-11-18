@@ -48,6 +48,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.os.Build
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import coil.request.ImageRequest
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -55,6 +64,7 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.fitnesstracker.domain.model.Exercise
 import com.example.fitnesstracker.domain.model.ExerciseCategory
 import com.example.fitnesstracker.domain.model.ExerciseGuide
+import com.example.fitnesstracker.ui.components.MuscleMapView
 import com.example.fitnesstracker.ui.components.categoryIcon
 
 /**
@@ -160,6 +170,14 @@ fun ExerciseTechniqueSheet(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 4.1 Анатомическая карта работающих мышц
+            MuscleMapView(
+                primaryMuscleNames = guide.primaryMuscles,
+                secondaryMuscleNames = guide.secondaryMuscles
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -277,20 +295,52 @@ private fun AnimationContainer(assetName: String?, category: ExerciseCategory) {
             contentAlignment = Alignment.Center
         ) {
             if (!assetName.isNullOrBlank()) {
-                val compositionResult = rememberLottieComposition(
-                    LottieCompositionSpec.Asset("animations/$assetName")
-                )
-                val composition = compositionResult.value
-                if (composition != null) {
-                    LottieAnimation(
-                        composition = composition,
-                        iterations = LottieConstants.IterateForever,
+                if (assetName.endsWith(".json", ignoreCase = true)) {
+                    val compositionResult = rememberLottieComposition(
+                        LottieCompositionSpec.Asset("animations/$assetName")
+                    )
+                    val composition = compositionResult.value
+                    if (composition != null) {
+                        LottieAnimation(
+                            composition = composition,
+                            iterations = LottieConstants.IterateForever,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp)
+                        )
+                    } else {
+                        PulsingCategoryPlaceholder(category)
+                    }
+                } else {
+                    val context = LocalContext.current
+                    val imageLoader = remember {
+                        ImageLoader.Builder(context)
+                            .components {
+                                if (Build.VERSION.SDK_INT >= 28) {
+                                    add(ImageDecoderDecoder.Factory())
+                                } else {
+                                    add(GifDecoder.Factory())
+                                }
+                            }
+                            .build()
+                    }
+                    val model = if (assetName.startsWith("http://") || assetName.startsWith("https://")) {
+                        assetName
+                    } else {
+                        "file:///android_asset/animations/$assetName"
+                    }
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(model)
+                            .crossfade(true)
+                            .build(),
+                        imageLoader = imageLoader,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp)
+                            .padding(12.dp)
                     )
-                } else {
-                    PulsingCategoryPlaceholder(category)
                 }
             } else {
                 PulsingCategoryPlaceholder(category)
