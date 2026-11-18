@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.ui.profile
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -417,6 +419,16 @@ private fun AppUpdateCard(
     onDownload: (ReleaseInfo) -> Unit,
     onInstall: (java.io.File) -> Unit
 ) {
+    val context = LocalContext.current
+    val openUrl = { urlString: String ->
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(urlString)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -533,18 +545,29 @@ private fun AppUpdateCard(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            Button(
-                                onClick = { onDownload(updateState.release) },
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Download,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Скачать обновление")
+                                Button(
+                                    onClick = { onDownload(updateState.release) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Скачать")
+                                }
+                                OutlinedButton(
+                                    onClick = { openUrl(updateState.release.downloadUrl) },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("В браузере")
+                                }
                             }
                         }
                     }
@@ -605,11 +628,61 @@ private fun AppUpdateCard(
                     }
                 }
                 is UpdateUiState.Error -> {
-                    Text(
-                        text = updateState.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = updateState.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (updateState.release != null) {
+                                Button(
+                                    onClick = { onDownload(updateState.release) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Повторить")
+                                }
+                                OutlinedButton(
+                                    onClick = { openUrl(updateState.release.downloadUrl) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1.3f)
+                                ) {
+                                    Text("В браузере")
+                                }
+                            } else {
+                                Button(
+                                    onClick = onCheck,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Повторить")
+                                }
+                                OutlinedButton(
+                                    onClick = { openUrl("https://github.com/Kakuzaaa/fit_track/releases/latest") },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1.3f)
+                                ) {
+                                    Text("GitHub")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
