@@ -1,5 +1,8 @@
 package com.example.fitnesstracker.ui.quicklog
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -26,9 +29,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,16 +49,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import android.os.Build
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.remember
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
@@ -103,11 +110,57 @@ fun ExerciseTechniqueSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 1. Анимация (Lottie) или анимированная иконка-плейсхолдер
+            // 1. Анимация (Реальный WebP или векторный Lottie)
             AnimationContainer(
                 assetName = guide.animationAsset,
                 category = exercise.category
             )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 1.1 Кнопка видеоразбора на YouTube в 1 клик (без RuTube)
+            val context = LocalContext.current
+            val query = "Техника выполнения ${exercise.name}" + (exercise.gripType?.let { " $it" } ?: "")
+            Button(
+                onClick = {
+                    val encodedQuery = Uri.encode(query)
+                    val youtubeAppUri = Uri.parse("vnd.youtube://results?search_query=$encodedQuery")
+                    val youtubeWebUri = Uri.parse("https://www.youtube.com/results?search_query=$encodedQuery")
+                    val appIntent = Intent(Intent.ACTION_VIEW, youtubeAppUri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(appIntent)
+                    } catch (_: Exception) {
+                        val webIntent = Intent(Intent.ACTION_VIEW, youtubeWebUri).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        try {
+                            context.startActivity(webIntent)
+                        } catch (_: Exception) {}
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFCC0000),
+                    contentColor = Color.White
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Смотреть видео техники на YouTube",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -286,7 +339,7 @@ private fun AnimationContainer(assetName: String?, category: ExerciseCategory) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(210.dp),
+            .height(230.dp),
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
@@ -295,6 +348,7 @@ private fun AnimationContainer(assetName: String?, category: ExerciseCategory) {
             contentAlignment = Alignment.Center
         ) {
             if (!assetName.isNullOrBlank()) {
+                val isRealWebp = assetName.endsWith(".webp", ignoreCase = true) || assetName.endsWith(".gif", ignoreCase = true)
                 if (assetName.endsWith(".json", ignoreCase = true)) {
                     val compositionResult = rememberLottieComposition(
                         LottieCompositionSpec.Asset("animations/$assetName")
@@ -339,8 +393,36 @@ private fun AnimationContainer(assetName: String?, category: ExerciseCategory) {
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(12.dp)
+                            .padding(8.dp)
                     )
+                }
+
+                // Индикатор типа анимации (Реальное видео/фото против Векторной биомеханики)
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isRealWebp) Icons.Filled.FitnessCenter else Icons.Filled.Bolt,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = if (isRealWebp) "Реальная техника" else "Векторная схема",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             } else {
                 PulsingCategoryPlaceholder(category)
