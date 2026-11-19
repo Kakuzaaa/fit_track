@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,9 +20,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.PersonOutline
@@ -35,6 +41,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -52,14 +59,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fitnesstracker.domain.model.ThemeMode
+import com.example.fitnesstracker.domain.model.WeightLog
 import com.example.fitnesstracker.ui.LocalAppContainer
+import com.example.fitnesstracker.ui.components.WeightChart
 import com.example.fitnesstracker.ui.components.shareText
 import com.example.fitnesstracker.util.Formatters
 import com.example.fitnesstracker.util.ReleaseInfo
@@ -77,14 +88,18 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
             settingsRepository = container.settingsRepository,
             workoutRepository = container.workoutRepository,
             exerciseRepository = container.exerciseRepository,
+            weightRepository = container.weightRepository,
             appUpdateManager = container.appUpdateManager
         )
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val weightHistory by viewModel.weightHistory.collectAsStateWithLifecycle()
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showClearDialog by remember { mutableStateOf(false) }
+    var showAddWeightDialog by remember { mutableStateOf(false) }
+    var showWeightHistory by remember { mutableStateOf(false) }
 
     fun showSnackbar(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
@@ -121,7 +136,7 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
             fontWeight = FontWeight.Bold
         )
 
-        // ── Вес тела ──
+        // ── Дневник веса тела ──
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -130,17 +145,91 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
             )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Вес тела",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Влияет на расчёт калорий в новых записях",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "⚖️", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Дневник веса тела",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Text(
+                            text = "Влияет на расчёт калорий силовых и кардио",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    FilledTonalButton(
+                        onClick = { showAddWeightDialog = true },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Взвеситься", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Крупное отображение текущего веса и дельты
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = state.weightText.ifEmpty { "75" },
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "кг",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    if (weightHistory.size >= 2) {
+                        val first = weightHistory.first().weightKg
+                        val last = weightHistory.last().weightKg
+                        val diff = last - first
+                        val diffStr = if (diff > 0) "+${Formatters.number(diff.toFloat())} кг" else "${Formatters.number(diff.toFloat())} кг"
+                        val badgeColor = if (diff <= 0) Color(0xFF4CAF50) else Color(0xFFFFA726)
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = badgeColor.copy(alpha = 0.15f),
+                            modifier = Modifier.padding(bottom = 6.dp, start = 6.dp)
+                        ) {
+                            Text(
+                                text = diffStr,
+                                color = badgeColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                // График веса
+                if (weightHistory.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    WeightChart(weights = weightHistory)
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Быстрое поле изменения веса
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = state.weightText,
@@ -159,10 +248,85 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
-                        onClick = { if (viewModel.saveWeight()) showSnackbar("Вес сохранён") },
+                        onClick = { if (viewModel.saveWeight()) showSnackbar("Вес сохранён и записан в дневник") },
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(text = "Сохранить")
+                    }
+                }
+
+                // Раскрывающийся список истории взвешиваний
+                if (weightHistory.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showWeightHistory = !showWeightHistory }
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "История измерений (${weightHistory.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Icon(
+                            imageVector = if (showWeightHistory) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (showWeightHistory) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            weightHistory.sortedByDescending { it.dateEpochDay }.take(10).forEach { item ->
+                                val date = java.time.LocalDate.ofEpochDay(item.dateEpochDay)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "${Formatters.number(item.weightKg.toFloat())} кг",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "${date.dayOfMonth}.${date.monthValue.toString().padStart(2, '0')}.${date.year}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.deleteWeightEntry(item.id)
+                                                showSnackbar("Запись веса удалена")
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.DeleteOutline,
+                                                contentDescription = "Удалить",
+                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -403,6 +567,86 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
                     Text(text = "Отмена")
+                }
+            }
+        )
+    }
+
+    if (showAddWeightDialog) {
+        var inputWeight by remember { mutableStateOf(state.weightText.ifEmpty { "75.0" }) }
+        var isErr by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showAddWeightDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "⚖️", fontSize = 24.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Внести вес тела", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Запись на сегодня (${Formatters.dayTitle(java.time.LocalDate.now().toEpochDay())})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = inputWeight,
+                        onValueChange = {
+                            inputWeight = it
+                            isErr = false
+                        },
+                        suffix = { Text("кг") },
+                        isError = isErr,
+                        supportingText = { if (isErr) Text("Введите число от 30 до 250") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        listOf(-1.0, -0.5, 0.5, 1.0).forEach { step ->
+                            val label = if (step > 0) "+$step" else "$step"
+                            FilledTonalButton(
+                                onClick = {
+                                    val current = inputWeight.replace(',', '.').toDoubleOrNull() ?: 75.0
+                                    inputWeight = Formatters.number((current + step).toFloat())
+                                },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(text = label, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val parsed = inputWeight.replace(',', '.').toDoubleOrNull()
+                        if (parsed == null || parsed < 30.0 || parsed > 250.0) {
+                            isErr = true
+                        } else {
+                            viewModel.addWeightEntry(parsed)
+                            showSnackbar("Вес сохранён: ${Formatters.number(parsed.toFloat())} кг")
+                            showAddWeightDialog = false
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Записать")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddWeightDialog = false }) {
+                    Text("Отмена")
                 }
             }
         )

@@ -8,9 +8,11 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.fitnesstracker.data.local.dao.ExerciseDao
+import com.example.fitnesstracker.data.local.dao.WeightLogDao
 import com.example.fitnesstracker.data.local.dao.WorkoutLogDao
 import com.example.fitnesstracker.data.local.dao.WorkoutTemplateDao
 import com.example.fitnesstracker.data.local.entity.ExerciseEntity
+import com.example.fitnesstracker.data.local.entity.WeightLogEntity
 import com.example.fitnesstracker.data.local.entity.WorkoutLogEntity
 import com.example.fitnesstracker.data.local.entity.WorkoutTemplateEntity
 import com.example.fitnesstracker.data.local.entity.WorkoutTemplateItemEntity
@@ -26,9 +28,10 @@ import kotlinx.coroutines.launch
         ExerciseEntity::class,
         WorkoutLogEntity::class,
         WorkoutTemplateEntity::class,
-        WorkoutTemplateItemEntity::class
+        WorkoutTemplateItemEntity::class,
+        WeightLogEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -39,6 +42,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun workoutLogDao(): WorkoutLogDao
 
     abstract fun workoutTemplateDao(): WorkoutTemplateDao
+
+    abstract fun weightLogDao(): WeightLogDao
 
     companion object {
 
@@ -104,6 +109,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v3 → v4: добавлен дневник взвешиваний веса тела. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `weight_logs` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `dateEpochDay` INTEGER NOT NULL,
+                        `weightKg` REAL NOT NULL,
+                        `timestamp` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -116,7 +137,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         private fun build(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "fitness_tracker.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

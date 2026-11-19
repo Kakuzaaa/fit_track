@@ -66,6 +66,7 @@ import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.EmptyState
 import com.example.fitnesstracker.ui.components.WeeklyBarChart
+import com.example.fitnesstracker.ui.components.WorkoutHeatmap
 import com.example.fitnesstracker.ui.components.workoutDetails
 import com.example.fitnesstracker.ui.quicklog.QuickLogSheet
 import com.example.fitnesstracker.ui.quicklog.QuickLogViewModel
@@ -125,6 +126,9 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
 
             WeeklyChartCard(
                 week = weekStats,
+                statsByDay = dayStats.associateBy { it.dateEpochDay },
+                selectedEpochDay = selectedDay,
+                onSelectDay = viewModel::selectDay,
                 selectedDate = LocalDate.ofEpochDay(selectedDay)
             )
 
@@ -299,14 +303,19 @@ private fun DateStrip(statsByDay: Map<Long, DayStats>, selectedDay: Long, onSele
 // ─────────────────────────── График за неделю ───────────────────────────
 
 /**
- * Карточка «Последние 7 дней» с переключателем метрик: ккал / повторения.
+ * Карточка статистики активности: переключение между недельным графиком (7 дней)
+ * и GitHub-картой активности (16 недель).
  */
 @Composable
 private fun WeeklyChartCard(
     week: List<Pair<LocalDate, DayStats>>,
+    statsByDay: Map<Long, DayStats>,
+    selectedEpochDay: Long,
+    onSelectDay: (Long) -> Unit,
     selectedDate: LocalDate? = null
 ) {
-    var metric by rememberSaveable { mutableIntStateOf(0) }
+    var viewMode by rememberSaveable { mutableIntStateOf(0) } // 0: 7 дней, 1: Карта активности
+    var metric by rememberSaveable { mutableIntStateOf(0) } // 0: Ккал, 1: Повторения
 
     Card(
         modifier = Modifier
@@ -323,38 +332,66 @@ private fun WeeklyChartCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Последние 7 дней",
+                    text = if (viewMode == 0) "Активность" else "Карта активности",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
-                    selected = metric == 0,
-                    onClick = { metric = 0 },
-                    label = { Text(text = "Ккал") }
+                    selected = viewMode == 0,
+                    onClick = { viewMode = 0 },
+                    label = { Text(text = "7 дней") }
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 FilterChip(
-                    selected = metric == 1,
-                    onClick = { metric = 1 },
-                    label = { Text(text = "Повторения") }
+                    selected = viewMode == 1,
+                    onClick = { viewMode = 1 },
+                    label = { Text(text = "Матрица") }
                 )
             }
+
             Spacer(modifier = Modifier.height(12.dp))
-            WeeklyBarChart(
-                days = week.map { it.first },
-                values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps },
-                selectedDate = selectedDate
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
-            val average = values.sum() / 7
-            Text(
-                text = "В среднем: ${Formatters.number(average.toFloat())} " +
-                    if (metric == 0) "ккал в день" else "повторений в день",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+
+            if (viewMode == 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = metric == 0,
+                        onClick = { metric = 0 },
+                        label = { Text(text = "Ккал") }
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    FilterChip(
+                        selected = metric == 1,
+                        onClick = { metric = 1 },
+                        label = { Text(text = "Повторения") }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                WeeklyBarChart(
+                    days = week.map { it.first },
+                    values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps },
+                    selectedDate = selectedDate
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
+                val average = values.sum() / 7
+                Text(
+                    text = "В среднем: ${Formatters.number(average.toFloat())} " +
+                        if (metric == 0) "ккал в день" else "повторений в день",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                WorkoutHeatmap(
+                    statsByDay = statsByDay,
+                    selectedEpochDay = selectedEpochDay,
+                    onSelectDay = onSelectDay
+                )
+            }
         }
     }
 }

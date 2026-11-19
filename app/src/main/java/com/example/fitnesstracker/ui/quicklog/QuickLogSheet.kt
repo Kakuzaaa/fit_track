@@ -33,6 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -67,6 +68,7 @@ import com.example.fitnesstracker.domain.model.ExerciseProgressions
 import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.data.guides.ExerciseGuides
+import com.example.fitnesstracker.ui.components.PlateCalculatorDialog
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import com.example.fitnesstracker.ui.components.categoryIcon
@@ -562,7 +564,7 @@ private fun ExerciseFormContent(exercise: Exercise, state: QuickLogUiState, view
             TrackingType.REPS_WEIGHT -> {
                 RepsForm(state = state, viewModel = viewModel)
                 Spacer(modifier = Modifier.height(16.dp))
-                WeightForm(state = state, viewModel = viewModel)
+                WeightForm(exercise = exercise, state = state, viewModel = viewModel)
             }
             TrackingType.CARDIO_SPEED -> CardioForm(exercise = exercise, state = state, viewModel = viewModel)
             TrackingType.DURATION -> DurationForm(state = state, viewModel = viewModel)
@@ -742,18 +744,46 @@ private fun RepsForm(state: QuickLogUiState, viewModel: QuickLogViewModel) {
     )
 }
 
-// ── Вес гантелей ──
+// ── Вес гантелей / штанги ──
 
-private val weightPresets = listOf(2f, 4f, 6f, 8f, 10f, 12f, 16f, 20f)
+private val dumbbellWeightPresets = listOf(2f, 4f, 6f, 8f, 10f, 12f, 16f, 20f, 24f)
+private val barbellWeightPresets = listOf(30f, 40f, 50f, 60f, 70f, 80f, 100f, 120f)
 
 @Composable
-private fun WeightForm(state: QuickLogUiState, viewModel: QuickLogViewModel) {
-    SectionLabel(text = "Вес гантели (кг)")
+private fun WeightForm(exercise: Exercise, state: QuickLogUiState, viewModel: QuickLogViewModel) {
+    var showPlateCalc by remember { mutableStateOf(false) }
+    val isBarbell = exercise.category == ExerciseCategory.BARBELL ||
+        exercise.name.contains("штан", ignoreCase = true) ||
+        exercise.name.contains("жим", ignoreCase = true) ||
+        exercise.name.contains("присед", ignoreCase = true) ||
+        exercise.name.contains("тяга", ignoreCase = true)
+
+    val label = if (isBarbell) "Вес штанги (кг)" else "Вес отягощения (кг)"
+    val basePresets = if (isBarbell) barbellWeightPresets else dumbbellWeightPresets
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SectionLabel(text = label)
+        if (isBarbell) {
+            FilledTonalButton(
+                onClick = { showPlateCalc = true },
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Text(text = "🏋️ Блины", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+
     val options = buildList {
         state.lastUsedWeightKg?.let { last ->
-            if (weightPresets.none { it == last }) add(last)
+            if (basePresets.none { it == last }) add(last)
         }
-        addAll(weightPresets)
+        addAll(basePresets)
     }
     ChipSelectorRow(
         options = options.map { Formatters.number(it) },
@@ -769,13 +799,14 @@ private fun WeightForm(state: QuickLogUiState, viewModel: QuickLogViewModel) {
         )
     }
     Spacer(modifier = Modifier.height(10.dp))
+    val step = if (isBarbell) 2.5f else 0.5f
     StepperRow(
         minusIcon = Icons.Filled.Remove,
         plusIcon = Icons.Filled.Add,
         minusDescription = "Меньше вес",
         plusDescription = "Больше вес",
-        onMinus = { viewModel.setWeight(state.weightKg - 0.5f) },
-        onPlus = { viewModel.setWeight(state.weightKg + 0.5f) },
+        onMinus = { viewModel.setWeight(maxOf(0f, state.weightKg - step)) },
+        onPlus = { viewModel.setWeight(state.weightKg + step) },
         field = {
             NumberField(
                 value = Formatters.number(state.weightKg),
@@ -785,6 +816,16 @@ private fun WeightForm(state: QuickLogUiState, viewModel: QuickLogViewModel) {
             )
         }
     )
+
+    if (showPlateCalc) {
+        PlateCalculatorDialog(
+            initialWeightKg = state.weightKg,
+            onApplyWeight = { newWeight ->
+                viewModel.setWeight(newWeight)
+            },
+            onDismiss = { showPlateCalc = false }
+        )
+    }
 }
 
 // ── Кардио: скорость + расстояние, длительность необязательна ──

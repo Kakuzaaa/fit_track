@@ -6,9 +6,11 @@ import com.example.fitnesstracker.domain.model.Exercise
 import com.example.fitnesstracker.domain.model.ExerciseCategory
 import com.example.fitnesstracker.domain.model.ThemeMode
 import com.example.fitnesstracker.domain.model.TrackingType
+import com.example.fitnesstracker.domain.model.WeightLog
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.ExerciseRepository
 import com.example.fitnesstracker.domain.repository.SettingsRepository
+import com.example.fitnesstracker.domain.repository.WeightRepository
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
 import com.example.fitnesstracker.util.AppUpdateManager
 import com.example.fitnesstracker.util.CalorieCalculator
@@ -17,9 +19,11 @@ import com.example.fitnesstracker.util.ReleaseInfo
 import com.example.fitnesstracker.util.UpdateUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,11 +54,15 @@ class ProfileViewModel(
     private val settingsRepository: SettingsRepository,
     private val workoutRepository: WorkoutRepository,
     private val exerciseRepository: ExerciseRepository,
+    private val weightRepository: WeightRepository,
     private val appUpdateManager: AppUpdateManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileUiState())
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
+
+    val weightHistory: StateFlow<List<WeightLog>> = weightRepository.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val updateState: StateFlow<UpdateUiState> = appUpdateManager.state
 
@@ -104,8 +112,24 @@ class ProfileViewModel(
             _state.update { it.copy(weightError = true) }
             return false
         }
-        viewModelScope.launch { settingsRepository.setBodyWeight(parsed) }
+        viewModelScope.launch {
+            settingsRepository.setBodyWeight(parsed)
+            weightRepository.addWeight(parsed, LocalDate.now().toEpochDay())
+        }
         return true
+    }
+
+    fun addWeightEntry(weightKg: Double, dateEpochDay: Long = LocalDate.now().toEpochDay()) {
+        viewModelScope.launch {
+            weightRepository.addWeight(weightKg, dateEpochDay)
+            settingsRepository.setBodyWeight(weightKg)
+        }
+    }
+
+    fun deleteWeightEntry(id: Long) {
+        viewModelScope.launch {
+            weightRepository.deleteWeight(id)
+        }
     }
 
     fun onDailyGoalChange(text: String) {

@@ -5,9 +5,11 @@ import android.content.Context
 import com.example.fitnesstracker.data.local.AppDatabase
 import com.example.fitnesstracker.data.preferences.SettingsRepositoryImpl
 import com.example.fitnesstracker.data.repository.ExerciseRepositoryImpl
+import com.example.fitnesstracker.data.repository.WeightRepositoryImpl
 import com.example.fitnesstracker.data.repository.WorkoutRepositoryImpl
 import com.example.fitnesstracker.domain.repository.ExerciseRepository
 import com.example.fitnesstracker.domain.repository.SettingsRepository
+import com.example.fitnesstracker.domain.repository.WeightRepository
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
 import com.example.fitnesstracker.util.AppUpdateManager
 
@@ -34,6 +36,8 @@ class AppContainer(context: Context) {
         templateDao = database.workoutTemplateDao(),
         exerciseDao = database.exerciseDao()
     )
+
+    val weightRepository: WeightRepository = WeightRepositoryImpl(database.weightLogDao())
 
     val settingsRepository: SettingsRepository = SettingsRepositoryImpl(context)
 
