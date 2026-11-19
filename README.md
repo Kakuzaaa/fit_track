@@ -60,7 +60,7 @@ cd fit_track
 ./gradlew :app:assembleDebug
 ```
 
-Готовый APK доступен в разделе [Releases](https://github.com/Kakuzaaa/fit_track/releases) — актуальная версия **v1.5.2**.
+Готовый APK доступен в разделе [Releases](https://github.com/Kakuzaaa/fit_track/releases) — актуальная версия **v1.5.3**.
 
 ## Структура проекта
 
