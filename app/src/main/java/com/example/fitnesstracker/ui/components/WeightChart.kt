@@ -145,18 +145,29 @@ fun WeightChart(
         ) {
             val firstDate = LocalDate.ofEpochDay(sorted.first().dateEpochDay)
             val lastDate = LocalDate.ofEpochDay(sorted.last().dateEpochDay)
-            Text(
-                text = "${firstDate.dayOfMonth}.${firstDate.monthValue.toString().padStart(2, '0')}: ${Formatters.number(sorted.first().weightKg.toFloat())} кг",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "${lastDate.dayOfMonth}.${lastDate.monthValue.toString().padStart(2, '0')}: ${Formatters.number(sorted.last().weightKg.toFloat())} кг",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            if (sorted.size == 1) {
+                Text(
+                    text = "Зафиксирован вес: ${Formatters.number(sorted.first().weightKg.toFloat())} кг (${firstDate.dayOfMonth}.${firstDate.monthValue.toString().padStart(2, '0')})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            } else {
+                Text(
+                    text = "${firstDate.dayOfMonth}.${firstDate.monthValue.toString().padStart(2, '0')}: ${Formatters.number(sorted.first().weightKg.toFloat())} кг",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "${lastDate.dayOfMonth}.${lastDate.monthValue.toString().padStart(2, '0')}: ${Formatters.number(sorted.last().weightKg.toFloat())} кг",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }

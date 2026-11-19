@@ -63,7 +63,12 @@ fun WorkoutHeatmap(
         scrollState.scrollTo(scrollState.maxValue)
     }
 
-    var totalActiveDays = 0
+    val totalActiveDays = androidx.compose.runtime.remember(statsByDay) {
+        (0L until WEEKS_COUNT * 7).count { dayOffset ->
+            val d = startMonday.plusDays(dayOffset)
+            !d.isAfter(today) && (statsByDay[d.toEpochDay()]?.entries ?: 0) > 0
+        }
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -145,7 +150,6 @@ fun WorkoutHeatmap(
 
                             val stats = if (isFuture) null else statsByDay[epochDay]
                             val entries = stats?.entries ?: 0
-                            if (entries > 0) totalActiveDays++
 
                             val cellColor = when {
                                 isFuture -> Color.Transparent
