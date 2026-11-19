@@ -58,6 +58,9 @@ interface WorkoutLogDao {
     @Query("SELECT * FROM workout_logs ORDER BY timestamp DESC")
     suspend fun getAllLogs(): List<WorkoutLogEntity>
 
+    @Query("SELECT * FROM workout_logs ORDER BY dateEpochDay DESC, timestamp DESC")
+    fun observeAllLogs(): Flow<List<WorkoutLogEntity>>
+
     @Query(
         "SELECT weightKg FROM workout_logs WHERE exerciseId = :exerciseId AND weightKg IS NOT NULL " +
             "ORDER BY timestamp DESC LIMIT 1"

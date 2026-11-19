@@ -41,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -78,8 +79,15 @@ fun PlateCalculatorDialog(
     onApplyWeight: (Float) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var targetWeight by remember { mutableFloatStateOf(maxOf(20f, initialWeightKg)) }
+    val initialTarget = maxOf(20f, initialWeightKg)
+    var targetWeight by remember { mutableFloatStateOf(initialTarget) }
+    var targetWeightText by remember { mutableStateOf(Formatters.number(initialTarget)) }
     var barWeight by remember { mutableFloatStateOf(20f) }
+
+    val updateTargetWeight = { newWeight: Float ->
+        targetWeight = newWeight
+        targetWeightText = Formatters.number(newWeight)
+    }
 
     val result = remember(targetWeight, barWeight) {
         PlateCalculator.calculate(targetWeightKg = targetWeight, barWeightKg = barWeight)
@@ -120,10 +128,12 @@ fun PlateCalculatorDialog(
 
                 // Целевой вес: поле ввода + кнопки шага
                 OutlinedTextField(
-                    value = Formatters.number(targetWeight),
+                    value = targetWeightText,
                     onValueChange = { input ->
-                        input.replace(',', '.').toFloatOrNull()?.let {
-                            targetWeight = maxOf(0f, it)
+                        targetWeightText = input
+                        val parsed = input.replace(',', '.').toFloatOrNull()
+                        if (parsed != null && parsed >= 0f) {
+                            targetWeight = parsed
                         }
                     },
                     suffix = { Text("кг", fontWeight = FontWeight.SemiBold) },
@@ -157,7 +167,7 @@ fun PlateCalculatorDialog(
                         val label = if (step > 0) "+${Formatters.number(step)}" else Formatters.number(step)
                         FilledTonalButton(
                             onClick = {
-                                targetWeight = maxOf(barWeight, targetWeight + step)
+                                updateTargetWeight(maxOf(barWeight, targetWeight + step))
                             },
                             shape = RoundedCornerShape(12.dp)
                         ) {
@@ -185,7 +195,9 @@ fun PlateCalculatorDialog(
                             selected = barWeight == weight,
                             onClick = {
                                 barWeight = weight
-                                if (targetWeight < weight) targetWeight = weight
+                                if (targetWeight < weight) {
+                                    updateTargetWeight(weight)
+                                }
                             },
                             label = { Text(text = label, fontSize = 12.sp) }
                         )

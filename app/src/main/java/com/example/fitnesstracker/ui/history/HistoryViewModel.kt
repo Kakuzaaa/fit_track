@@ -8,16 +8,28 @@ import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
 import com.example.fitnesstracker.util.CalorieCalculator
+import com.example.fitnesstracker.util.Formatters
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+
+/**
+ * Группа результатов поиска за один день.
+ */
+data class HistorySearchResultGroup(
+    val dateEpochDay: Long,
+    val dateTitle: String,
+    val totalCalories: Int,
+    val logs: List<WorkoutLog>
+)
 
 /**
  * Сводка по одному упражнению за выбранный день
@@ -61,6 +73,48 @@ class HistoryViewModel(private val workoutRepository: WorkoutRepository) : ViewM
     /** Лучшие результаты по каждому упражнению за всю историю (нормативы уровня атлета). */
     private val _bestStats = MutableStateFlow<Map<Long, BestExerciseStats>>(emptyMap())
     val bestStats: StateFlow<Map<Long, BestExerciseStats>> = _bestStats.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun clearSearch() {
+        _searchQuery.value = ""
+    }
+
+    /**
+     * Поиск по журналу тренировок: совпадение по имени упражнения, хвату,
+     * названию дня/дате, весу, повторениям или дистанции.
+     */
+    val searchResults: StateFlow<List<HistorySearchResultGroup>> = combine(
+        _searchQuery,
+        workoutRepository.observeAllLogs()
+    ) { query, allLogs ->
+        val q = query.trim().lowercase()
+        if (q.isBlank()) {
+            emptyList()
+        } else {
+            val matched = allLogs.filter { log ->
+                log.exerciseNameSnapshot.lowercase().contains(q) ||
+                    Formatters.dayTitle(log.dateEpochDay).lowercase().contains(q) ||
+                    LocalDate.ofEpochDay(log.dateEpochDay).toString().contains(q) ||
+                    (log.weightKg != null && (Formatters.number(log.weightKg).contains(q) || "${log.weightKg.toInt()}".contains(q))) ||
+                    (log.reps != null && "${log.reps}".contains(q)) ||
+                    (log.distanceKm != null && Formatters.number(log.distanceKm).contains(q))
+            }
+            matched.groupBy { it.dateEpochDay }.map { (day, logs) ->
+                HistorySearchResultGroup(
+                    dateEpochDay = day,
+                    dateTitle = Formatters.dayTitle(day),
+                    totalCalories = logs.sumOf { it.caloriesBurned },
+                    logs = logs.sortedByDescending { it.timestamp }
+                )
+            }.sortedByDescending { it.dateEpochDay }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         viewModelScope.launch {

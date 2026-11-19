@@ -38,4 +38,15 @@ class FormattersTest {
         assertEquals("2 ч", Formatters.minutes(120.0f))
         assertEquals("2 ч 15 мин", Formatters.minutes(135.0f))
     }
+
+    @Test
+    fun testNumberFormatting() {
+        assertEquals("8", Formatters.number(8.0f))
+        assertEquals("8,5", Formatters.number(8.5f))
+        assertEquals("8,25", Formatters.number(8.25f))
+        assertEquals("0", Formatters.number(0f))
+        assertEquals("0", Formatters.number(Float.NaN))
+        assertEquals("0", Formatters.number(Float.POSITIVE_INFINITY))
+        assertEquals("0", Formatters.number(Float.NEGATIVE_INFINITY))
+    }
 }

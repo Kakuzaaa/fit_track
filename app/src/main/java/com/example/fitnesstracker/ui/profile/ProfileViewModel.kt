@@ -6,6 +6,7 @@ import com.example.fitnesstracker.domain.model.Exercise
 import com.example.fitnesstracker.domain.model.ExerciseCategory
 import com.example.fitnesstracker.domain.model.ThemeMode
 import com.example.fitnesstracker.domain.model.TrackingType
+import com.example.fitnesstracker.domain.model.UserSettings
 import com.example.fitnesstracker.domain.model.WeightLog
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.repository.ExerciseRepository
@@ -129,6 +130,9 @@ class ProfileViewModel(
     fun deleteWeightEntry(id: Long) {
         viewModelScope.launch {
             weightRepository.deleteWeight(id)
+            val latest = weightRepository.observeLatest().first()
+            val newBodyWeight = latest?.weightKg ?: UserSettings.DEFAULT_BODY_WEIGHT_KG
+            settingsRepository.setBodyWeight(newBodyWeight)
         }
     }
 

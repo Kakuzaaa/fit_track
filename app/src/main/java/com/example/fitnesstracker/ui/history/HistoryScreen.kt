@@ -22,21 +22,28 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -101,6 +108,8 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
     val summaries by viewModel.daySummaries.collectAsStateWithLifecycle()
     val weekStats by viewModel.weekStats.collectAsStateWithLifecycle()
     val bestStats by viewModel.bestStats.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
     var showQuickLog by remember { mutableStateOf(false) }
@@ -118,90 +127,165 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            DateStrip(
-                statsByDay = dayStats.associateBy { it.dateEpochDay },
-                selectedDay = selectedDay,
-                onSelect = viewModel::selectDay
-            )
-
-            WeeklyChartCard(
-                week = weekStats,
-                statsByDay = dayStats.associateBy { it.dateEpochDay },
-                selectedEpochDay = selectedDay,
-                onSelectDay = viewModel::selectDay,
-                selectedDate = LocalDate.ofEpochDay(selectedDay)
-            )
-
-            val totalKcal = dayLogs.sumOf { it.caloriesBurned }
-            val cardioMinutes = dayLogs.filter { it.speedKmh != null }
-                .sumOf { log ->
-                    log.durationMinutes?.toDouble()
-                        ?: CalorieCalculator.minutesFromDistance(
-                            (log.distanceKm ?: 0f).toDouble(),
-                            (log.speedKmh ?: 0f).toDouble()
-                        )
-                }.toFloat()
-            DaySummaryCard(
-                title = Formatters.dayTitle(selectedDay),
-                totalKcal = totalKcal,
-                entries = dayLogs.size,
-                cardioMinutes = cardioMinutes
-            )
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (summaries.isEmpty()) {
-                    item(key = "empty") {
-                        EmptyState(
-                            icon = Icons.Filled.History,
-                            title = "Нет записей за этот день",
-                            subtitle = "Нажмите «+ Записать в день», чтобы внести тренировку"
-                        )
-                    }
-                } else {
-                    items(summaries, key = { it.name }) { summary ->
-                        val bestLevel = bestStats[summary.entries.first().exerciseId]?.let {
-                            AthleteStandards.levelForStats(it.exerciseId, it.bestReps, it.bestSeconds)
+            // Поле поиска по всей истории тренировок
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = viewModel::onSearchQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+                placeholder = {
+                    Text(
+                        text = "Поиск (упражнение, хват, вес, дата)...",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = "Поиск",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = viewModel::clearSearch) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Очистить поиск"
+                            )
                         }
-                        ExpandableExerciseCard(
-                            summary = summary,
-                            bestLevel = bestLevel,
-                            onEdit = { log ->
-                                quickLogViewModel.startEditing(log)
-                                showQuickLog = true
-                            },
-                            onRepeat = { log ->
-                                viewModel.repeat(log)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
-                                    )
-                                }
-                            },
-                            onDelete = { log ->
-                                viewModel.delete(log)
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Удалено: ${log.exerciseNameSnapshot}",
-                                        actionLabel = "Отменить",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        viewModel.restore(log)
-                                    }
-                                }
-                            },
-                            onAddSet = { exerciseId ->
-                                quickLogViewModel.openForExerciseAndDate(exerciseId, selectedDay)
-                                showQuickLog = true
-                            }
-                        )
                     }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                )
+            )
+
+            if (searchQuery.isNotBlank()) {
+                SearchResultsView(
+                    resultGroups = searchResults,
+                    onSelectDay = { day ->
+                        viewModel.selectDay(day)
+                        viewModel.clearSearch()
+                    },
+                    onEdit = { log ->
+                        quickLogViewModel.startEditing(log)
+                        showQuickLog = true
+                    },
+                    onRepeat = { log ->
+                        viewModel.repeat(log)
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                            )
+                        }
+                    },
+                    onDelete = { log ->
+                        viewModel.delete(log)
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Удалено: ${log.exerciseNameSnapshot}",
+                                actionLabel = "Отменить",
+                                duration = SnackbarDuration.Short
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                viewModel.restore(log)
+                            }
+                        }
+                    }
+                )
+            } else {
+                DateStrip(
+                    statsByDay = dayStats.associateBy { it.dateEpochDay },
+                    selectedDay = selectedDay,
+                    onSelect = viewModel::selectDay
+                )
+
+                WeeklyChartCard(
+                    week = weekStats,
+                    statsByDay = dayStats.associateBy { it.dateEpochDay },
+                    selectedEpochDay = selectedDay,
+                    onSelectDay = viewModel::selectDay,
+                    selectedDate = LocalDate.ofEpochDay(selectedDay)
+                )
+
+                val totalKcal = dayLogs.sumOf { it.caloriesBurned }
+                val cardioMinutes = dayLogs.filter { it.speedKmh != null }
+                    .sumOf { log ->
+                        log.durationMinutes?.toDouble()
+                            ?: CalorieCalculator.minutesFromDistance(
+                                (log.distanceKm ?: 0f).toDouble(),
+                                (log.speedKmh ?: 0f).toDouble()
+                            )
+                    }.toFloat()
+                DaySummaryCard(
+                    title = Formatters.dayTitle(selectedDay),
+                    totalKcal = totalKcal,
+                    entries = dayLogs.size,
+                    cardioMinutes = cardioMinutes
+                )
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (summaries.isEmpty()) {
+                        item(key = "empty") {
+                            EmptyState(
+                                icon = Icons.Filled.History,
+                                title = "Нет записей за этот день",
+                                subtitle = "Нажмите «+ Записать в день», чтобы внести тренировку"
+                            )
+                        }
+                    } else {
+                        items(summaries, key = { it.name }) { summary ->
+                            val bestLevel = bestStats[summary.entries.first().exerciseId]?.let {
+                                AthleteStandards.levelForStats(it.exerciseId, it.bestReps, it.bestSeconds)
+                            }
+                            ExpandableExerciseCard(
+                                summary = summary,
+                                bestLevel = bestLevel,
+                                onEdit = { log ->
+                                    quickLogViewModel.startEditing(log)
+                                    showQuickLog = true
+                                },
+                                onRepeat = { log ->
+                                    viewModel.repeat(log)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                                        )
+                                    }
+                                },
+                                onDelete = { log ->
+                                    viewModel.delete(log)
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Удалено: ${log.exerciseNameSnapshot}",
+                                            actionLabel = "Отменить",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            viewModel.restore(log)
+                                        }
+                                    }
+                                },
+                                onAddSet = { exerciseId ->
+                                    quickLogViewModel.openForExerciseAndDate(exerciseId, selectedDay)
+                                    showQuickLog = true
+                                }
+                            )
+                        }
+                    }
+                    item(key = "bottom_space") { Spacer(modifier = Modifier.height(84.dp)) }
                 }
-                item(key = "bottom_space") { Spacer(modifier = Modifier.height(84.dp)) }
             }
         }
 
@@ -618,4 +702,162 @@ private fun aggregateText(summary: DayExerciseSummary): String = when (summary.t
     }
     TrackingType.DURATION ->
         "${Formatters.minutes(summary.totalMinutes)} всего"
+}
+
+// ─────────────────────────── Результаты поиска ───────────────────────────
+
+@Composable
+private fun SearchResultsView(
+    resultGroups: List<HistorySearchResultGroup>,
+    onSelectDay: (Long) -> Unit,
+    onEdit: (WorkoutLog) -> Unit,
+    onRepeat: (WorkoutLog) -> Unit,
+    onDelete: (WorkoutLog) -> Unit
+) {
+    if (resultGroups.isEmpty()) {
+        EmptyState(
+            icon = Icons.Filled.SearchOff,
+            title = "Ничего не найдено",
+            subtitle = "Попробуйте изменить запрос: например, «жим», «подтягивания», «80» или «ноябрь»"
+        )
+    } else {
+        val totalSets = resultGroups.sumOf { it.logs.size }
+        val daysCount = resultGroups.size
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item(key = "search_header") {
+                Text(
+                    text = "Найдено: $totalSets ${Formatters.plural(totalSets, "подход", "подхода", "подходов")} в $daysCount ${Formatters.plural(daysCount, "дне", "днях", "днях")}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                )
+            }
+
+            resultGroups.forEach { group ->
+                item(key = "group_${group.dateEpochDay}") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = group.dateTitle,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "+${group.totalCalories} ккал",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                FilledTonalButton(
+                                    onClick = { onSelectDay(group.dateEpochDay) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Text(text = "К этому дню →", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            group.logs.forEach { log ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                        .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = Formatters.time(log.timestamp),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.width(42.dp)
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = log.exerciseNameSnapshot,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = "${workoutDetails(log)}  ·  +${log.caloriesBurned} ккал",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onEdit(log) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Edit,
+                                            contentDescription = "Редактировать",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onRepeat(log) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Repeat,
+                                            contentDescription = "Повторить",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onDelete(log) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.DeleteOutline,
+                                            contentDescription = "Удалить",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item(key = "bottom_space_search") { Spacer(modifier = Modifier.height(84.dp)) }
+        }
+    }
 }

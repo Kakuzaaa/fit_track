@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,14 +108,16 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
     var showTemplates by remember { mutableStateOf(false) }
 
     // Таймер отдыха: запускается после сохранения нового подхода или «+1».
-    var restEndsAt by remember { mutableStateOf(0L) }
-    var restTotalMs by remember { mutableStateOf(0L) }
+    var restEndsAt by rememberSaveable { mutableStateOf(0L) }
+    var restTotalMs by rememberSaveable { mutableStateOf(0L) }
     var nowMs by remember { mutableStateOf(0L) }
 
     val startRestTimer = {
         if (restTimerSeconds > 0) {
+            val now = System.currentTimeMillis()
             restTotalMs = restTimerSeconds * 1000L
-            restEndsAt = System.currentTimeMillis() + restTotalMs
+            restEndsAt = now + restTotalMs
+            nowMs = now
         }
     }
 
@@ -233,7 +236,8 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
         }
 
         // Плавающий таймер отдыха над FAB.
-        val remainingMs = restEndsAt - nowMs
+        val currentMs = if (nowMs > 0L) nowMs else System.currentTimeMillis()
+        val remainingMs = restEndsAt - currentMs
         if (restEndsAt > 0L && remainingMs > 0) {
             Surface(
                 shape = RoundedCornerShape(20.dp),

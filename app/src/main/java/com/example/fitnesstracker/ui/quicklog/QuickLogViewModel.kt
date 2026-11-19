@@ -508,7 +508,8 @@ class QuickLogViewModel(
             val matchesCategory = state.selectedCategory == null || exercise.category == state.selectedCategory
             val matchesQuery = query.isEmpty() ||
                 exercise.name.contains(query, ignoreCase = true) ||
-                (exercise.gripType?.contains(query, ignoreCase = true) == true)
+                (exercise.gripType?.contains(query, ignoreCase = true) == true) ||
+                exercise.category.label.contains(query, ignoreCase = true)
             matchesCategory && matchesQuery
         }
         return state.copy(filteredExercises = filtered)

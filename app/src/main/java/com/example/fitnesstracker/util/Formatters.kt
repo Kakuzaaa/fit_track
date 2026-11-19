@@ -35,6 +35,7 @@ object Formatters {
 
     /** Число без лишних нулей: 8.0 → «8», 8.5 → «8,5». */
     fun number(value: Float): String {
+        if (value.isNaN() || value.isInfinite()) return "0"
         val normalized = (value * 100).roundToInt() / 100.0
         return if (normalized % 1.0 == 0.0) {
             normalized.toLong().toString()

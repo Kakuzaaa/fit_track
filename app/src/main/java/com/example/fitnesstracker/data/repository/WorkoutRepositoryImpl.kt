@@ -14,7 +14,9 @@ import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.domain.model.WorkoutTemplate
 import com.example.fitnesstracker.domain.model.WorkoutTemplateItem
 import com.example.fitnesstracker.domain.repository.WorkoutRepository
+import com.example.fitnesstracker.util.Formatters
 import com.example.fitnesstracker.util.OneRepMaxCalculator
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -56,6 +58,26 @@ class WorkoutRepositoryImpl(
 
     override suspend fun getAllLogs(): List<WorkoutLog> =
         dao.getAllLogs().map { it.toDomain() }
+
+    override fun observeAllLogs(): Flow<List<WorkoutLog>> =
+        dao.observeAllLogs().map { list -> list.map { it.toDomain() } }
+
+    override fun searchLogs(query: String): Flow<List<WorkoutLog>> =
+        observeAllLogs().map { logs ->
+            val q = query.trim().lowercase()
+            if (q.isBlank()) {
+                emptyList()
+            } else {
+                logs.filter { log ->
+                    log.exerciseNameSnapshot.lowercase().contains(q) ||
+                    Formatters.dayTitle(log.dateEpochDay).lowercase().contains(q) ||
+                    LocalDate.ofEpochDay(log.dateEpochDay).toString().contains(q) ||
+                    (log.weightKg != null && (Formatters.number(log.weightKg).contains(q) || "${log.weightKg.toInt()}".contains(q))) ||
+                    (log.reps != null && "${log.reps}".contains(q)) ||
+                    (log.distanceKm != null && Formatters.number(log.distanceKm).contains(q))
+                }
+            }
+        }
 
     override suspend fun getLastUsedWeight(exerciseId: Long): Float? =
         dao.getLastUsedWeight(exerciseId)

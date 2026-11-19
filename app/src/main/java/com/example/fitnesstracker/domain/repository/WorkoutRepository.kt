@@ -24,6 +24,10 @@ interface WorkoutRepository {
 
     suspend fun getAllLogs(): List<WorkoutLog>
 
+    fun observeAllLogs(): Flow<List<WorkoutLog>>
+
+    fun searchLogs(query: String): Flow<List<WorkoutLog>>
+
     /** Последний использованный вес гантели для упражнения (для быстрого повтора). */
     suspend fun getLastUsedWeight(exerciseId: Long): Float?
 
