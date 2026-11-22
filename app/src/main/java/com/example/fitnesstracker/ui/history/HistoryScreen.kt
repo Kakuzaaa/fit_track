@@ -72,6 +72,8 @@ import com.example.fitnesstracker.domain.model.TrackingType
 import com.example.fitnesstracker.domain.model.WorkoutLog
 import com.example.fitnesstracker.ui.LocalAppContainer
 import com.example.fitnesstracker.ui.components.EmptyState
+import com.example.fitnesstracker.ui.components.ExerciseCategoryBadge
+import com.example.fitnesstracker.ui.components.ExerciseVisuals
 import com.example.fitnesstracker.ui.components.WeeklyBarChart
 import com.example.fitnesstracker.ui.components.WorkoutHeatmap
 import com.example.fitnesstracker.ui.components.workoutDetails
@@ -119,8 +121,11 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
             showQuickLog = false
             val verb = if (event.isEdit) "Обновлено" else "Записано"
             val prPrefix = if (event.isPersonalRecord) "🏆 Новый рекорд! " + (event.prDescription?.let { "($it) · " } ?: "") else ""
+            snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(
-                message = "$prPrefix$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
+                message = "$prPrefix$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал",
+                duration = SnackbarDuration.Short,
+                withDismissAction = true
             )
         }
     }
@@ -259,8 +264,11 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
                                 onRepeat = { log ->
                                     viewModel.repeat(log)
                                     scope.launch {
+                                        snackbarHostState.currentSnackbarData?.dismiss()
                                         snackbarHostState.showSnackbar(
-                                            message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                                            message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал",
+                                            duration = SnackbarDuration.Short,
+                                            withDismissAction = true
                                         )
                                     }
                                 },
@@ -458,7 +466,8 @@ private fun WeeklyChartCard(
                 WeeklyBarChart(
                     days = week.map { it.first },
                     values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps },
-                    selectedDate = selectedDate
+                    selectedDate = selectedDate,
+                    onSelectDate = { date -> onSelectDay(date.toEpochDay()) }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
@@ -555,6 +564,8 @@ private fun ExpandableExerciseCard(
     onAddSet: (Long) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val firstEntry = summary.entries.first()
+    val visuals = ExerciseVisuals.forLog(firstEntry)
 
     Card(
         modifier = Modifier
@@ -563,18 +574,33 @@ private fun ExpandableExerciseCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, visuals.color.copy(alpha = 0.25f))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = trackingIcon(summary.trackingType),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(visuals.containerColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = visuals.icon,
+                        contentDescription = visuals.label,
+                        tint = visuals.color,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    ) {
+                        ExerciseCategoryBadge(category = visuals.category)
+                    }
                     Text(
                         text = summary.name,
                         style = MaterialTheme.typography.titleMedium,
@@ -590,7 +616,8 @@ private fun ExpandableExerciseCard(
                 Text(
                     text = "+${summary.totalKcal} ккал",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    fontWeight = FontWeight.Bold,
+                    color = visuals.color
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Icon(
@@ -790,6 +817,7 @@ private fun SearchResultsView(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             group.logs.forEach { log ->
+                                val visuals = ExerciseVisuals.forLog(log)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -806,6 +834,12 @@ private fun SearchResultsView(
                                         modifier = Modifier.width(42.dp)
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(bottom = 2.dp)
+                                        ) {
+                                            ExerciseCategoryBadge(category = visuals.category)
+                                        }
                                         Text(
                                             text = log.exerciseNameSnapshot,
                                             style = MaterialTheme.typography.bodyMedium,

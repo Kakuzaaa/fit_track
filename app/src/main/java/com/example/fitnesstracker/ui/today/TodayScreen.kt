@@ -35,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -130,8 +131,11 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
             }
             val verb = if (event.isEdit) "Обновлено" else "Записано"
             val prPrefix = if (event.isPersonalRecord) "🏆 Новый рекорд! " + (event.prDescription?.let { "($it) · " } ?: "") else ""
+            snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(
-                message = "$prPrefix$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал"
+                message = "$prPrefix$verb: ${event.log.exerciseNameSnapshot} · +${event.log.caloriesBurned} ккал",
+                duration = SnackbarDuration.Short,
+                withDismissAction = true
             )
         }
     }
@@ -210,8 +214,11 @@ fun TodayScreen(snackbarHostState: SnackbarHostState) {
                                 viewModel.repeat(log)
                                 startRestTimer()
                                 scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
                                     snackbarHostState.showSnackbar(
-                                        message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал"
+                                        message = "Повторено: ${log.exerciseNameSnapshot} · +${log.caloriesBurned} ккал",
+                                        duration = SnackbarDuration.Short,
+                                        withDismissAction = true
                                     )
                                 }
                             },

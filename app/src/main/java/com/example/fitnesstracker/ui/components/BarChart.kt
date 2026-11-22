@@ -3,6 +3,8 @@ package com.example.fitnesstracker.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +39,8 @@ fun WeeklyBarChart(
     days: List<LocalDate>,
     values: List<Int>,
     modifier: Modifier = Modifier,
-    selectedDate: LocalDate? = null
+    selectedDate: LocalDate? = null,
+    onSelectDate: ((LocalDate) -> Unit)? = null
 ) {
     val maxValue = (values.maxOrNull() ?: 0).coerceAtLeast(1)
     val today = LocalDate.now()
@@ -55,7 +58,15 @@ fun WeeklyBarChart(
             val isHighlighted = isSelected || (selectedDate == null && isToday)
 
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .then(
+                        if (onSelectDate != null) {
+                            Modifier.clickable { onSelectDate(date) }
+                        } else Modifier
+                    )
+                    .padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom
             ) {
@@ -85,9 +96,15 @@ fun WeeklyBarChart(
                             .clip(RoundedCornerShape(8.dp))
                             .background(
                                 when {
-                                    isHighlighted -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                    isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                                     else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
                                 }
+                            )
+                            .then(
+                                if (isSelected) {
+                                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                } else Modifier
                             )
                     )
 

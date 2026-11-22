@@ -152,6 +152,14 @@ abstract class AppDatabase : RoomDatabase() {
                             }
                         }
                     }
+
+                    override fun onOpen(db: SupportSQLiteDatabase) {
+                        super.onOpen(db)
+                        // Синхронизация новых упражнений при обновлении приложения (OnConflictStrategy.IGNORE)
+                        seedScope.launch {
+                            INSTANCE?.exerciseDao()?.insertAll(DefaultExercises.all)
+                        }
+                    }
                 })
                 .build()
     }

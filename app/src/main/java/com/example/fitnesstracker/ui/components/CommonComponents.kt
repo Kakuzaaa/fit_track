@@ -135,26 +135,36 @@ fun WorkoutLogRow(
     onEdit: (() -> Unit)? = null,
     onRepeat: (() -> Unit)? = null
 ) {
+    val visuals = ExerciseVisuals.forLog(log)
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, visuals.color.copy(alpha = 0.25f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LogIconBadge(icon = logIcon(log))
+            CategoryIconBadge(log = log)
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                ) {
+                    ExerciseCategoryBadge(category = visuals.category)
+                }
                 Text(
                     text = log.exerciseNameSnapshot,
                     style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = workoutDetails(log),
                     style = MaterialTheme.typography.bodySmall,
@@ -173,7 +183,7 @@ fun WorkoutLogRow(
                 val interaction = remember { MutableInteractionSource() }
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    color = visuals.color.copy(alpha = 0.15f),
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .clickable(
@@ -187,7 +197,7 @@ fun WorkoutLogRow(
                             text = "+${log.reps}",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = visuals.color,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         )
                     } else {
@@ -198,7 +208,7 @@ fun WorkoutLogRow(
                             Icon(
                                 imageVector = Icons.Filled.Repeat,
                                 contentDescription = "Повторить запись",
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = visuals.color,
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -206,7 +216,7 @@ fun WorkoutLogRow(
                                 text = "Повтор",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = visuals.color
                             )
                         }
                     }
@@ -218,7 +228,7 @@ fun WorkoutLogRow(
                     text = "+${log.caloriesBurned} ккал",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = visuals.color
                 )
                 Text(
                     text = Formatters.time(log.timestamp),
