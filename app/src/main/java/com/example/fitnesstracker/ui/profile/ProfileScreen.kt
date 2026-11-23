@@ -147,57 +147,16 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "⚖️", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Дневник веса тела",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        Text(
-                            text = "Влияет на расчёт калорий силовых и кардио",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    FilledTonalButton(
-                        onClick = { showAddWeightDialog = true },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(imageVector = Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Взвеситься", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Крупное отображение текущего веса и дельты
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                    Text(text = "⚖️", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = state.weightText.ifEmpty { "75" },
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "кг",
+                        text = "Дневник веса тела",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        modifier = Modifier.weight(1f)
                     )
-
                     if (weightHistory.size >= 2) {
                         val first = weightHistory.first().weightKg
                         val last = weightHistory.last().weightKg
@@ -207,8 +166,7 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
 
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = badgeColor.copy(alpha = 0.15f),
-                            modifier = Modifier.padding(bottom = 6.dp, start = 6.dp)
+                            color = badgeColor.copy(alpha = 0.15f)
                         ) {
                             Text(
                                 text = diffStr,
@@ -220,8 +178,13 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                         }
                     }
                 }
+                Text(
+                    text = "Влияет на расчёт калорий силовых и кардио",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-                // График веса
+                // График веса (если есть история)
                 if (weightHistory.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     WeightChart(weights = weightHistory)
@@ -236,11 +199,9 @@ fun ProfileScreen(snackbarHostState: SnackbarHostState) {
                         onValueChange = viewModel::onWeightChange,
                         suffix = { Text(text = "кг") },
                         isError = state.weightError,
-                        supportingText = {
-                            if (state.weightError) {
-                                Text(text = "Введите вес от 30 до 250 кг")
-                            }
-                        },
+                        supportingText = if (state.weightError) {
+                            { Text(text = "Введите вес от 30 до 250 кг") }
+                        } else null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),

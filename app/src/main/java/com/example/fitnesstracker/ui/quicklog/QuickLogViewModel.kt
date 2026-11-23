@@ -54,7 +54,7 @@ data class QuickLogUiState(
     val distanceKm: Float = 3f,
     /** Длительность для кардио — необязательна: если null, считаем из расстояния и скорости. */
     val cardioDurationMinutes: Float? = null,
-    val speedKmh: Float = 5.5f,
+    val speedKmh: Float = 5f,
     val lastUsedWeightKg: Float? = null,
     val previewKcal: Int = 0,
     val showCreateDialog: Boolean = false,
@@ -473,9 +473,9 @@ class QuickLogViewModel(
 
     /** Пресеты скорости в зависимости от вида кардио. */
     fun speedPresets(exercise: Exercise): List<Float> = when {
-        exercise.name.contains("ходьб", ignoreCase = true) -> listOf(4f, 5.5f, 6.5f)
-        exercise.name.contains("бег", ignoreCase = true) -> listOf(8f, 10f, 12.5f)
-        else -> listOf(4f, 5.5f, 6.5f, 8f, 10f, 12.5f)
+        exercise.name.contains("ходьб", ignoreCase = true) -> listOf(4f, 5f, 6f)
+        exercise.name.contains("бег", ignoreCase = true) -> listOf(8f, 10f, 12f)
+        else -> listOf(4f, 5f, 6f, 8f, 10f, 12f)
     }
 
     /** Пресеты расстояния (км) в зависимости от вида кардио. */
@@ -491,7 +491,7 @@ class QuickLogViewModel(
             ?: CalorieCalculator.minutesFromDistance(state.distanceKm.toDouble(), state.speedKmh.toDouble())
 
     private fun defaultSpeedFor(exercise: Exercise): Float = when {
-        exercise.name.contains("ходьб", ignoreCase = true) -> 5.5f
+        exercise.name.contains("ходьб", ignoreCase = true) -> 5f
         exercise.name.contains("бег", ignoreCase = true) -> 10f
         else -> 8f
     }

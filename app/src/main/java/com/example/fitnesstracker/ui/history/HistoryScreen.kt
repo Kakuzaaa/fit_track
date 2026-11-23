@@ -212,14 +212,6 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
                     onSelect = viewModel::selectDay
                 )
 
-                WeeklyChartCard(
-                    week = weekStats,
-                    statsByDay = dayStats.associateBy { it.dateEpochDay },
-                    selectedEpochDay = selectedDay,
-                    onSelectDay = viewModel::selectDay,
-                    selectedDate = LocalDate.ofEpochDay(selectedDay)
-                )
-
                 val totalKcal = dayLogs.sumOf { it.caloriesBurned }
                 val cardioMinutes = dayLogs.filter { it.speedKmh != null }
                     .sumOf { log ->
@@ -229,18 +221,31 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
                                 (log.speedKmh ?: 0f).toDouble()
                             )
                     }.toFloat()
-                DaySummaryCard(
-                    title = Formatters.dayTitle(selectedDay),
-                    totalKcal = totalKcal,
-                    entries = dayLogs.size,
-                    cardioMinutes = cardioMinutes
-                )
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    item(key = "chart") {
+                        WeeklyChartCard(
+                            week = weekStats,
+                            statsByDay = dayStats.associateBy { it.dateEpochDay },
+                            selectedEpochDay = selectedDay,
+                            onSelectDay = viewModel::selectDay,
+                            selectedDate = LocalDate.ofEpochDay(selectedDay)
+                        )
+                    }
+
+                    item(key = "summary") {
+                        DaySummaryCard(
+                            title = Formatters.dayTitle(selectedDay),
+                            totalKcal = totalKcal,
+                            entries = dayLogs.size,
+                            cardioMinutes = cardioMinutes
+                        )
+                    }
+
                     if (summaries.isEmpty()) {
                         item(key = "empty") {
                             EmptyState(
@@ -292,7 +297,7 @@ fun HistoryScreen(snackbarHostState: SnackbarHostState) {
                             )
                         }
                     }
-                    item(key = "bottom_space") { Spacer(modifier = Modifier.height(84.dp)) }
+                    item(key = "bottom_space") { Spacer(modifier = Modifier.height(24.dp)) }
                 }
             }
         }
@@ -404,23 +409,26 @@ private fun WeeklyChartCard(
     statsByDay: Map<Long, DayStats>,
     selectedEpochDay: Long,
     onSelectDay: (Long) -> Unit,
-    selectedDate: LocalDate? = null
+    selectedDate: LocalDate? = null,
+    modifier: Modifier = Modifier
 ) {
+    var isCollapsed by rememberSaveable { mutableStateOf(false) }
     var viewMode by rememberSaveable { mutableIntStateOf(0) } // 0: 7 дней, 1: Карта активности
     var metric by rememberSaveable { mutableIntStateOf(0) } // 0: Ккал, 1: Повторения
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { isCollapsed = !isCollapsed },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -429,61 +437,80 @@ private fun WeeklyChartCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
-                FilterChip(
-                    selected = viewMode == 0,
-                    onClick = { viewMode = 0 },
-                    label = { Text(text = "7 дней") }
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                FilterChip(
-                    selected = viewMode == 1,
-                    onClick = { viewMode = 1 },
-                    label = { Text(text = "Матрица") }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (viewMode == 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                if (!isCollapsed) {
                     FilterChip(
-                        selected = metric == 0,
-                        onClick = { metric = 0 },
-                        label = { Text(text = "Ккал") }
+                        selected = viewMode == 0,
+                        onClick = { viewMode = 0 },
+                        label = { Text(text = "7 дней") }
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     FilterChip(
-                        selected = metric == 1,
-                        onClick = { metric = 1 },
-                        label = { Text(text = "Повторения") }
+                        selected = viewMode == 1,
+                        onClick = { viewMode = 1 },
+                        label = { Text(text = "Матрица") }
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                } else {
+                    val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
+                    val average = values.sum() / 7
+                    Text(
+                        text = "В ср. $average ${if (metric == 0) "ккал" else "повт."}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 6.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                WeeklyBarChart(
-                    days = week.map { it.first },
-                    values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps },
-                    selectedDate = selectedDate,
-                    onSelectDate = { date -> onSelectDay(date.toEpochDay()) }
+                Icon(
+                    imageVector = if (isCollapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
+                    contentDescription = if (isCollapsed) "Развернуть график" else "Свернуть график",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
-                val average = values.sum() / 7
-                Text(
-                    text = "В среднем: ${Formatters.number(average.toFloat())} " +
-                        if (metric == 0) "ккал в день" else "повторений в день",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                WorkoutHeatmap(
-                    statsByDay = statsByDay,
-                    selectedEpochDay = selectedEpochDay,
-                    onSelectDay = onSelectDay
-                )
+            }
+
+            if (!isCollapsed) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (viewMode == 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = metric == 0,
+                            onClick = { metric = 0 },
+                            label = { Text(text = "Ккал") }
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        FilterChip(
+                            selected = metric == 1,
+                            onClick = { metric = 1 },
+                            label = { Text(text = "Повторения") }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    WeeklyBarChart(
+                        days = week.map { it.first },
+                        values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps },
+                        selectedDate = selectedDate,
+                        onSelectDate = { date -> onSelectDay(date.toEpochDay()) }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val values = week.map { if (metric == 0) it.second.totalCalories else it.second.totalReps }
+                    val average = values.sum() / 7
+                    Text(
+                        text = "В среднем: ${Formatters.number(average.toFloat())} " +
+                            if (metric == 0) "ккал в день" else "повторений в день",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    WorkoutHeatmap(
+                        statsByDay = statsByDay,
+                        selectedEpochDay = selectedEpochDay,
+                        onSelectDay = onSelectDay
+                    )
+                }
             }
         }
     }
@@ -492,11 +519,15 @@ private fun WeeklyChartCard(
 // ─────────────────────────── Сводка дня ───────────────────────────
 
 @Composable
-private fun DaySummaryCard(title: String, totalKcal: Int, entries: Int, cardioMinutes: Float) {
+private fun DaySummaryCard(
+    title: String,
+    totalKcal: Int,
+    entries: Int,
+    cardioMinutes: Float,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
