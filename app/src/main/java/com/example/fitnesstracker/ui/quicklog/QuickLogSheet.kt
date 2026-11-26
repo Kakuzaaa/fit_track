@@ -716,7 +716,7 @@ private fun StepperRow(
 
 // ── Повторения ──
 
-private val repPresets = listOf(5, 10, 12, 15, 20, 25)
+private val repPresets = listOf(5, 8, 10, 12, 15, 20, 25)
 
 @Composable
 private fun RepsForm(state: QuickLogUiState, viewModel: QuickLogViewModel) {
@@ -863,10 +863,10 @@ private fun CardioForm(exercise: Exercise, state: QuickLogUiState, viewModel: Qu
     StepperRow(
         minusIcon = Icons.Filled.Remove,
         plusIcon = Icons.Filled.Add,
-        minusDescription = "Минус километр",
-        plusDescription = "Плюс километр",
-        onMinus = { viewModel.setDistance(state.distanceKm - 1f) },
-        onPlus = { viewModel.setDistance(state.distanceKm + 1f) },
+        minusDescription = "Минус 0.1 км",
+        plusDescription = "Плюс 0.1 км",
+        onMinus = { viewModel.changeDistance(-0.1f) },
+        onPlus = { viewModel.changeDistance(0.1f) },
         field = {
             NumberField(
                 value = Formatters.number(state.distanceKm),

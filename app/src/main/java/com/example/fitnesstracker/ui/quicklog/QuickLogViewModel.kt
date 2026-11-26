@@ -118,7 +118,7 @@ class QuickLogViewModel(
                     it.copy(
                         selected = exercise,
                         editingLog = null,
-                        reps = 10,
+                        reps = defaultRepsFor(exercise),
                         weightKg = lastWeight ?: 8f,
                         lastUsedWeightKg = lastWeight,
                         durationMinutes = if (exercise.trackingType == TrackingType.DURATION) 1f else 30f,
@@ -218,7 +218,7 @@ class QuickLogViewModel(
                         selected = exercise,
                         editingLog = null,
                         targetDateEpochDay = dateEpochDay,
-                        reps = 10,
+                        reps = defaultRepsFor(exercise),
                         weightKg = lastWeight ?: 8f,
                         lastUsedWeightKg = lastWeight,
                         durationMinutes = if (exercise.trackingType == TrackingType.DURATION) 1f else 30f,
@@ -251,7 +251,7 @@ class QuickLogViewModel(
                         selected = exercise,
                         editingLog = null,
                         targetDateEpochDay = null,
-                        reps = targetReps ?: 10,
+                        reps = targetReps ?: defaultRepsFor(exercise),
                         weightKg = targetWeightKg ?: 8f,
                         durationMinutes = targetDurationMinutes ?: 1f,
                         distanceKm = defaultDistanceFor(exercise),
@@ -280,6 +280,14 @@ class QuickLogViewModel(
 
     fun setDistance(distanceKm: Float) {
         _state.update { recalculate(it.copy(distanceKm = distanceKm.coerceIn(0f, 200f))) }
+    }
+
+    fun changeDistance(delta: Float) {
+        _state.update { current ->
+            val raw = current.distanceKm + delta
+            val rounded = (kotlin.math.round(raw * 10f) / 10f).coerceIn(0.1f, 200f)
+            recalculate(current.copy(distanceKm = rounded))
+        }
     }
 
     fun setCardioDuration(minutes: Float?) {
@@ -500,6 +508,15 @@ class QuickLogViewModel(
         exercise.name.contains("ходьб", ignoreCase = true) -> 3f
         exercise.name.contains("бег", ignoreCase = true) -> 5f
         else -> 4f
+    }
+
+    private fun defaultRepsFor(exercise: Exercise): Int = when {
+        // Подтягивания: прямой средний (ID 8) и обратный на бицепс (ID 9) по умолчанию 8 повторений
+        exercise.id == 8L || exercise.id == 9L -> 8
+        exercise.name.contains("подтягиван", ignoreCase = true) &&
+            (exercise.gripType?.contains("прямой средний", ignoreCase = true) == true ||
+             exercise.gripType?.contains("обратный", ignoreCase = true) == true) -> 8
+        else -> 10
     }
 
     private fun applyFilters(state: QuickLogUiState): QuickLogUiState {
